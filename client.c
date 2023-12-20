@@ -51,8 +51,8 @@ int main() {
 
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
-        .sin_port = htons(1337),
-        .sin_addr = aton_ipv4("127.0.0.1")
+        .sin_port = htons(8000),
+        .sin_addr = aton_ipv4("193.196.38.83")
     };
     int status = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     if (status == -1) {
@@ -60,17 +60,8 @@ int main() {
         exit(1);
     }
 
-    struct pixel px = { .x = 0, .y = 0, .r = 0, .g = 0, .b = 0 };
-    while (1) {
-        if (px.x == 500) {
-            px.x = 0;
-            px.y++;
-            px.r += 10;
-            px.g += 10;
-            px.b += 10;
-        }
-        px.x++;
-        pixel_write(&px, fd);
-    }
+    struct pixel px = { .x = 0, .y = 0, .r = 255, .g = 0, .b = 0 };
+    pixel_write(&px, fd);
+
     close(fd);
 }

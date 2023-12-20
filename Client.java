@@ -2,23 +2,21 @@ import java.net.Socket;
 import java.io.OutputStream;
 import java.io.IOException;
 
-public class Client {
+public class JavaClient {
     public static void main(String[] args) {
-        String hostname = "127.0.0.1";
-        int port = 1337;
+        String hostname = "193.196.38.83";
+        int port = 8000;
 
         Socket socket = null;
         OutputStream os = null;
         try {
             socket = new Socket(hostname, port);
             os = socket.getOutputStream();
-            for (int i = 0; i < 5; i++) {
-                for (int j = 0; j < 5; j++) {
-                    String s = String.format("PX %d %d %02x%02x%02x\n", i, j, 255, 255, 0);
-                    System.out.print(s);
-                    os.write(s.getBytes());
-                }
-            }
+
+            String s = String.format("PX %d %d %02x%02x%02x\n", 0, 0, 255, 255, 255);
+            os.write(s.getBytes());
+            // TODO add custom functionality
+
             socket.close();
         } catch (IOException e) {
             e.printStackTrace(System.out);
