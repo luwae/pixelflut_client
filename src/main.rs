@@ -24,7 +24,7 @@ fn main() -> std::io::Result<()> {
     let mut p = Pixel {
         x: 0,
         y: 0,
-        color: (0, 100, 0),
+        color: (20, 150, 20),
     };
 
     let mut x: f64 = 0.0;
