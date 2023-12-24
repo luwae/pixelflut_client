@@ -1,3 +1,4 @@
+#[derive(Debug, Copy, Clone)]
 pub struct Pixel {
     pub x: usize,
     pub y: usize,
