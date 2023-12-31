@@ -6,7 +6,7 @@ pub fn barnsley_vec(n: usize) -> Vec<Pixel> {
     let mut p = Pixel {
         x: 0,
         y: 0,
-        color: (0, 255, 0),
+        color: (200, 200, 40),
     };
 
     let mut v = Vec::new();
