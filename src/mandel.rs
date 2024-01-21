@@ -26,7 +26,7 @@ impl Complex {
 }
 
 fn mandel_iter(zn: Complex, c: Complex) -> Complex {
-    zn.mul(zn).add(c)
+    zn.mul(zn).mul(zn).mul(zn).add(c)
 }
 
 fn mandel_exceeds(c: Complex, max_iter: usize, thresh: f64) -> Option<usize> {
@@ -40,14 +40,12 @@ fn mandel_exceeds(c: Complex, max_iter: usize, thresh: f64) -> Option<usize> {
     None
 }
 
-pub fn mandel_draw() -> Vec<Pixel> {
+pub fn draw(rmin: f64, rmax: f64, imin: f64, imax: f64, xsize: usize, ysize: usize) -> Vec<Pixel> {
     let mut v = Vec::new();
-    for i in -200i32..=100i32 {
-        for j in -100i32..=100i32 {
-            let j = -j;
-            let coord = Complex::from(i as f64 / 100.0, j as f64 / 100.0);
-            let x: usize = (i + 200).try_into().unwrap();
-            let y: usize = (j + 100).try_into().unwrap();
+    for x in 0..xsize {
+        for y in 0..ysize {
+            let coord = Complex::from(rmin + (rmax - rmin)*(x as f64 / xsize as f64),
+                                      imin + (imax - imin)*((ysize-(y+1)) as f64 / ysize as f64));
             if let Some(a) = mandel_exceeds(coord, 20, 100000.0) {
                 v.push(Pixel { x, y, color: (10*a as u8, 10*a as u8, 10*a as u8) })
             } else {
