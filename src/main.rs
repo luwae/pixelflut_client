@@ -201,17 +201,60 @@ fn floyd_steinberg_bw(rect: Rect, stream: &mut TcpStream) -> std::io::Result<()>
     Ok(())
 }
 
+fn clamp(i: i32) -> u8 {
+    if i < 0 {
+        0
+    } else if i > 255 {
+        255
+    } else {
+        i as u8
+    }
+}
+
+fn kernel_3x3(rect: Rect, kernel: [(i32, i32); 9], stream: &mut TcpStream) -> std::io::Result<()> {
+    let mut colors = vec![(0u8, 0u8, 0u8); (rect.w as usize) * (rect.h as usize)];
+    let mut new_colors = vec![(0u8, 0u8, 0u8); (rect.w as usize) * (rect.h as usize)];
+    command_rectangle_get(&mut colors[..], rect, stream)?;
+
+    for y in rect.ys_abs() {
+        for x in rect.xs_abs() {
+            let mut new_color = (0i32, 0i32, 0i32);
+            let mut index = 0;
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let (top, bottom) = kernel[index];
+                    if let Some((xx, yy)) = rect.get_mut_with_delta_abs(x, y, dx, dy) {
+                        let color = colors[rect.index_abs(xx, yy)];
+                        new_color.0 += color.0 as i32 * top / bottom;
+                        new_color.1 += color.1 as i32 * top / bottom;
+                        new_color.2 += color.2 as i32 * top / bottom;
+                    }
+                    index += 1;
+                }
+            }
+            new_colors[rect.index_abs(x, y)] = (clamp(new_color.0), clamp(new_color.1), clamp(new_color.2));
+        }
+    }
+
+    command_rectangle_print(&new_colors[..], rect, stream)?;
+    Ok(())
+}
+
 fn main() -> std::io::Result<()> {
     let mut stream = TcpStream::connect("127.0.0.1:1337")?;
 
     let info = command_info(&mut stream)?;
 
+    /*
     let pixels = mandel::draw(-2.0, 1.0, -1.5, 1.5, info.width as usize, info.height as usize);
     for pixel in pixels {
         command_print(&pixel, &mut stream)?;
     }
-    floyd_steinberg_bw(Rect { x: 0, y: 0, w: 256, h: 256 }, &mut stream)?;
-    floyd_steinberg_bw(Rect { x: 256, y: 256, w: 256, h: 256 }, &mut stream)?;
+    */
+    // floyd_steinberg_bw(Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
+    kernel_3x3(Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize },
+        [(0, 1), (-1, 1), (0, 1), (-1, 1), (4, 1), (-1, 1), (0, 1), (-1, 1), (0, 1)],
+        &mut stream)?;
 
     Ok(())
 }
