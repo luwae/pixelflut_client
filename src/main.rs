@@ -119,10 +119,9 @@ fn approx_single(col: u8) -> (u8, i32) {
 }
 
 fn approx(col: (u8, u8, u8)) -> ((u8, u8, u8), (i32, i32, i32)) {
-    let (ar, dr) = approx_single(col.0);
-    let (ag, dg) = approx_single(col.1);
-    let (ab, db) = approx_single(col.2);
-    ((ar, ag, ab), (dr, dg, db))
+    let light: u8 = ((col.0 as i32 + col.1 as i32 + col.2 as i32) / 3) as u8;
+    let (a, d) = approx_single(light);
+    ((a, a, a), (d, d, d))
 }
 
 /*        *  7/16
