@@ -26,7 +26,7 @@ impl Complex {
 }
 
 fn mandel_iter(zn: Complex, c: Complex) -> Complex {
-    zn.mul(zn).mul(zn).mul(zn).add(c)
+    zn.mul(zn).add(c)
 }
 
 fn mandel_exceeds(c: Complex, max_iter: usize, thresh: f64) -> Option<usize> {

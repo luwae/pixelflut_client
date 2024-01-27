@@ -4,6 +4,8 @@ use std::net::TcpStream;
 mod primitive;
 use primitive::{Pixel, Rect};
 
+mod mandel;
+
 #[derive(Debug)]
 struct ServerInfo {
     width: u32,
@@ -30,6 +32,20 @@ fn command_info(stream: &mut TcpStream) -> std::io::Result<ServerInfo> {
     let recv_buffer_size = decode_u32(&response[8..12]);
     let send_buffer_size = decode_u32(&response[12..16]);
     Ok(ServerInfo { width, height, recv_buffer_size, send_buffer_size })
+}
+
+fn command_print(px: &Pixel, stream: &mut TcpStream) -> std::io::Result<()> {
+    let mut data = [0u8; 8];
+    data[0] = b'P';
+    data[1] = px.x as u8;
+    data[2] = (px.x >> 8) as u8;
+    data[3] = px.y as u8;
+    data[4] = (px.y >> 8) as u8;
+    data[5] = px.color.0;
+    data[6] = px.color.1;
+    data[7] = px.color.2;
+    stream.write_all(&data[..])?;
+    Ok(())
 }
 
 fn encode_rect(rect: Rect, data: &mut [u8]) {
@@ -130,7 +146,14 @@ fn approx(col: (u8, u8, u8)) -> ((u8, u8, u8), (i32, i32, i32)) {
 
 fn main() -> std::io::Result<()> {
     let mut stream = TcpStream::connect("127.0.0.1:1337")?;
+
     let info = command_info(&mut stream)?;
+
+    let pixels = mandel::draw(-2.0, 1.0, -1.5, 1.5, info.width as usize, info.height as usize);
+    for pixel in pixels {
+        command_print(&pixel, &mut stream)?;
+    }
+
     let mut colors = vec![(0u8, 0u8, 0u8); (info.width as usize) * (info.height as usize)];
     command_rectangle_get(&mut colors[..], Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
     
