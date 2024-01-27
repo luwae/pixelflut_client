@@ -11,6 +11,39 @@ mod barnsley;
 
 mod firework;
 
+#[derive(Debug)]
+struct ServerInfo {
+    width: u32,
+    height: u32,
+    recv_buffer_size: u32,
+    send_buffer_size: u32,
+}
+
+fn server_info(stream: &mut TcpStream) -> std::io::Result<ServerInfo> {
+    let mut data = [0u8; 8];
+    data[0] = b'I';
+    stream.write_all(&data[..])?;
+    let mut response = [0u8; 16];
+    stream.read_exact(&mut response[..])?;
+    let width: u32 = (response[0] as u32)
+        | ((response[1] as u32) << 8)
+        | ((response[2] as u32) << 16)
+        | ((response[3] as u32) << 24);
+    let height: u32 = (response[4] as u32)
+        | ((response[5] as u32) << 8)
+        | ((response[6] as u32) << 16)
+        | ((response[7] as u32) << 24);
+    let recv_buffer_size: u32 = (response[8] as u32)
+        | ((response[9] as u32) << 8)
+        | ((response[10] as u32) << 16)
+        | ((response[11] as u32) << 24);
+    let send_buffer_size: u32 = (response[12] as u32)
+        | ((response[13] as u32) << 8)
+        | ((response[14] as u32) << 16)
+        | ((response[15] as u32) << 24);
+    Ok(ServerInfo { width, height, recv_buffer_size, send_buffer_size })
+}
+
 fn pixel_write_multi(colors: &[(u8, u8, u8)], rect: Rect, stream: &mut TcpStream) -> std::io::Result<()> {
     assert!(rect.w > 0 && rect.h > 0);
     assert!(colors.len() == rect.w * rect.h);
@@ -110,6 +143,34 @@ fn pixel_read(px: &mut Pixel, stream: &mut TcpStream) -> std::io::Result<()> {
     Ok(())
 }
 
+fn pixel_read_multi(colors: &mut Vec<(u8, u8, u8)>, rect: Rect, stream: &mut TcpStream) -> std::io::Result<()> {
+    let mut command: [u8; 8] = [0; 8];
+    command[0] = b'g';
+    command[1] = rect.x as u8;
+    command[2] = (rect.x >> 8) as u8;
+    command[3] = rect.y as u8;
+    command[4] = (rect.y >> 8) as u8;
+    command[5] = rect.w as u8;
+    command[6] = rect.h as u8;
+    command[7] = ((rect.w >> 8) & 0x0f) as u8 | ((rect.h >> 4) & 0xf0) as u8;
+    stream.write_all(&command[..])?;
+    // receive pixels
+    let mut data: Box<[u8; 1024]> = Box::new([0; 1024]);
+    let mut num_bytes_to_read: usize = rect.w * rect.h * 4;
+    while num_bytes_to_read > 0 {
+        let mut read_size = num_bytes_to_read;
+        if read_size > 1024 {
+            read_size = 1024;
+        }
+        stream.read_exact(&mut data[0..read_size])?;
+        num_bytes_to_read -= read_size;
+        for i in (0..read_size).step_by(4) {
+            colors.push((data[i + 0], data[i + 1], data[i + 2]));
+        }
+    }
+    Ok(())
+}
+
 /*
 fn rec(stream: &mut TcpStream, sx: usize, sy: usize, idepth: usize) {
     if idepth == 10 {
@@ -170,14 +231,8 @@ fn main() -> std::io::Result<()> {
     */
     /*
     let rect = Rect { x: 0, y: 0, w: 512, h: 512 };
-    let mut colors: Vec<(u8, u8, u8)> = Vec::new();
-    for i in 0u8..100u8 {
-        colors.push((i, i, i));
-    }
-    pixel_write_multi(&colors[..], rect, &mut stream)?;
-    */
-    let rect = Rect { x: 0, y: 0, w: 512, h: 512 };
     pixel_write_multi_onecolor((255, 0, 0), rect, &mut stream)?;
+    */
     /*
     let mut px = Pixel { x: 0, y: 0, color: (0, 0, 255) };
     for y in 0..512 {
@@ -188,6 +243,23 @@ fn main() -> std::io::Result<()> {
         }
     }
     */
+    let rect = Rect { x: 200, y: 100, w: 10, h: 10 };
+    let mut colors: Vec<(u8, u8, u8)> = Vec::new();
+    for i in 0u8..100u8 {
+        colors.push((i, i, i));
+    }
+    pixel_write_multi(&colors[..], rect, &mut stream)?;
+
+    colors = Vec::new();
+    let rect = Rect { x: 0, y: 0, w: 512, h: 512 };
+    pixel_read_multi(&mut colors, rect, &mut stream)?;
+    for color in &mut colors[..] {
+        color.0 = 255u8 - color.0;
+        color.1 = 255u8 - color.1;
+        color.2 = 255u8 - color.2;
+    }
+    pixel_write_multi(&colors[..], rect, &mut stream)?;
+    println!("{:?}", server_info(&mut stream)?);
 
     Ok(())
 }

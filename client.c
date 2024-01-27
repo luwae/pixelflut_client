@@ -29,15 +29,21 @@ struct pixel {
     unsigned char b;
 };
 
-char PIXEL[100];
+unsigned char PIXEL[8];
 void pixel_write(const struct pixel *px, int fd) {
-    int len = sprintf(PIXEL, "PX %d %d %02x%02x%02x\n",
-            px->x, px->y, px->r, px->g, px->b);
-    int n = write(fd, (void *)PIXEL, len);
+    PIXEL[0] = 'P';
+    PIXEL[1] = px->x & 0xff;
+    PIXEL[2] = (px->x >> 8) & 0xff;
+    PIXEL[3] = px->y & 0xff;
+    PIXEL[4] = (px->y >> 8) & 0xff;
+    PIXEL[5] = px->r;
+    PIXEL[6] = px->g;
+    PIXEL[7] = px->b;
+    int n = write(fd, (void *)PIXEL, 8);
     if (n == -1) {
         perror("write");
         exit(1);
-    } else if (n != len) {
+    } else if (n != 8) {
         printf("not all bytes transferred\n");
     }
 }
@@ -60,13 +66,15 @@ int main() {
         exit(1);
     }
 
-    char buf[128];
-    ssize_t n = read(fd, buf, 128);
-    if (n != 7) {
-        printf("read error\n");
-        exit(1);
+    struct pixel px = {0};
+    px.r = px.g = px.b = 100;
+    for (int i = 0; i < 256; i++) {
+        for (int j = 0; j < 256; j++) {
+            px.x = i;
+            px.y = j;
+            pixel_write(&px, fd);
+        }
     }
-    write(STDOUT_FILENO, buf, n);
 
     close(fd);
 }

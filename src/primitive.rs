@@ -5,6 +5,7 @@ pub struct Pixel {
     pub color: (u8, u8, u8),
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct Rect {
     pub x: usize,
     pub y: usize,
