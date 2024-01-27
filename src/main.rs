@@ -144,6 +144,63 @@ fn approx(col: (u8, u8, u8)) -> ((u8, u8, u8), (i32, i32, i32)) {
  * 3/16 5/16 1/16
  */
 
+struct Screen {
+    w: usize,
+    h: usize,
+    colors: Vec<(u8, u8, u8)>,
+}
+
+impl Screen {
+    fn get_neighbor_mut(&mut self, x: usize, y: usize, dx: i32, dy: i32) -> Option<&mut (u8, u8, u8)> {
+        let new_x = if dx >= 0 && x + (dx as usize) < self.w {
+            Some(x + (dx as usize))
+        } else if dx < 0 && (x as i32 + dx) >= 0 {
+            Some((x as i32 + dx) as usize)
+        } else {
+            None
+        };
+        let new_y = if dy >= 0 && y + (dy as usize) < self.h {
+            Some(y + (dy as usize))
+        } else if dy < 0 && (y as i32 + dy) >= 0 {
+            Some((y as i32 + dy) as usize)
+        } else {
+            None
+        };
+        if let (Some(nx), Some(ny)) = (new_x, new_y) {
+            Some(&mut self.colors[ny * self.w + nx])
+        } else {
+            None
+        }
+    }
+}
+
+fn floyd_steinberg_bw(rect: Rect, stream: &mut TcpStream) -> std::io::Result<()> {
+    let mut colors = vec![(0u8, 0u8, 0u8); (rect.w as usize) * (rect.h as usize)];
+    command_rectangle_get(&mut colors[..], rect, stream)?;
+    for y in rect.ys_abs() {
+        for x in rect.xs_abs() {
+            let (new_col, delta) = approx(colors[rect.index_abs(x, y)]);
+            colors[rect.index_abs(x, y)] = new_col;
+            // distribute delta
+            if let Some((xx, yy)) = rect.get_mut_with_delta_abs(x, y, 1, 0) {
+                add_delta(delta, 7, 16, &mut colors[rect.index_abs(xx, yy)]);
+            }
+            if let Some((xx, yy)) = rect.get_mut_with_delta_abs(x, y, -1, 1) {
+                add_delta(delta, 3, 16, &mut colors[rect.index_abs(xx, yy)]);
+            }
+            if let Some((xx, yy)) = rect.get_mut_with_delta_abs(x, y, 0, 1) {
+                add_delta(delta, 5, 16, &mut colors[rect.index_abs(xx, yy)]);
+            }
+            if let Some((xx, yy)) = rect.get_mut_with_delta_abs(x, y, 1, 1) {
+                add_delta(delta, 1, 16, &mut colors[rect.index_abs(xx, yy)]);
+            }
+        }
+    }
+    
+    command_rectangle_print(&colors[..], rect, stream)?;
+    Ok(())
+}
+
 fn main() -> std::io::Result<()> {
     let mut stream = TcpStream::connect("127.0.0.1:1337")?;
 
@@ -153,35 +210,8 @@ fn main() -> std::io::Result<()> {
     for pixel in pixels {
         command_print(&pixel, &mut stream)?;
     }
+    floyd_steinberg_bw(Rect { x: 0, y: 0, w: 256, h: 256 }, &mut stream)?;
+    floyd_steinberg_bw(Rect { x: 256, y: 256, w: 256, h: 256 }, &mut stream)?;
 
-    let mut colors = vec![(0u8, 0u8, 0u8); (info.width as usize) * (info.height as usize)];
-    command_rectangle_get(&mut colors[..], Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
-    
-    let w = info.width as usize;
-    let h = info.height as usize;
-    
-    for y in 0usize..h {
-        for x in 0usize..w {
-            let (new_col, delta) = approx(colors[y * w + x]);
-            colors[y * w + x] = new_col;
-            // distribute delta
-            if x + 1 < w {
-                add_delta(delta, 7, 16, &mut colors[y * w + (x + 1)]);
-            }
-            if x != 0 && y + 1 < h {
-                add_delta(delta, 3, 16, &mut colors[(y + 1) * w + (x - 1)]);
-            }
-            if y + 1 < h {
-                add_delta(delta, 5, 16, &mut colors[(y + 1) * w + x]);
-            }
-            if x + 1 < w && y + 1 < h {
-                add_delta(delta, 1, 16, &mut colors[(y + 1) * w + (x + 1)]);
-            }
-        }
-    }
-    
-    command_rectangle_print(&colors[..], Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
-    
-    println!("{:?}", info);
     Ok(())
 }
