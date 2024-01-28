@@ -252,10 +252,12 @@ fn main() -> std::io::Result<()> {
     }
     */
     // floyd_steinberg_bw(Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
+    loop {
     kernel_3x3(Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize },
         // [(0, 1), (-1, 1), (0, 1), (-1, 1), (4, 1), (-1, 1), (0, 1), (-1, 1), (0, 1)],
         [(1, 16), (2, 16), (1, 16), (2, 16), (4, 16), (2, 16), (1, 16), (2, 16), (1, 16)],
         &mut stream)?;
+    }
 
     Ok(())
 }
