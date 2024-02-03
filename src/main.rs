@@ -1,5 +1,6 @@
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use fastrand;
 
 mod primitive;
 use primitive::{Pixel, Rect};
@@ -270,9 +271,18 @@ fn main() -> std::io::Result<()> {
         // [(1, 16), (2, 16), (1, 16), (2, 16), (4, 16), (2, 16), (1, 16), (2, 16), (1, 16)],
         &mut stream)?;
     */
-    command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize}, &mut stream)?;
-    command_rectangle_fill((255, 0, 0), Rect { x: 0, y: 0, w: 100, h: 100}, &mut stream)?;
-    command_rectangle_fill((255, 255, 0), Rect { x: 50, y: 50, w: 100, h: 150}, &mut stream)?;
+    // command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize}, &mut stream)?;
+    // command_rectangle_fill((255, 0, 0), Rect { x: 0, y: 0, w: 100, h: 100}, &mut stream)?;
+    // command_rectangle_fill((255, 255, 0), Rect { x: 50, y: 50, w: 100, h: 150}, &mut stream)?;
+    loop {
+        let x = fastrand::usize(0..(info.width as usize));
+        let y = fastrand::usize(0..(info.height as usize));
+        let w = fastrand::usize(1..100);
+        let h = fastrand::usize(1..100);
+        command_rectangle_fill(
+            (fastrand::u8(..), fastrand::u8(..), fastrand::u8(..)),
+            Rect { x, y, w, h}, &mut stream)?;
+    }
 
     Ok(())
 }
