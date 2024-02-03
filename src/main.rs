@@ -253,35 +253,72 @@ fn kernel_3x3(rect: Rect, kernel: [(i32, i32); 9], stream: &mut TcpStream) -> st
     Ok(())
 }
 
+fn draw_circle_eighth(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
+    let rsq = radius * radius;
+    let mut coords = Vec::new();
+    let (mut x, mut y) = (center.0, center.1 + radius);
+    let (mut from_c_x, mut from_c_y) = (0, radius);
+    coords.push((x, y));
+    while from_c_y >= from_c_x {
+        let dx1 = (x + 1) - center.0;
+        let dy1 = y - center.1;
+        let d1 = dx1 * dx1 + dy1 * dy1;
+        let discrepancy1 = if d1 < rsq { rsq - d1 } else { d1 - rsq};
+        let dx2 = (x + 1) - center.0;
+        let dy2 = (y - 1) - center.1;
+        let d2 = dx2 * dx2 + dy2 * dy2;
+        let discrepancy2 = if d2 < rsq { rsq - d2 } else { d2 - rsq};
+        if discrepancy1 <= discrepancy2 {
+            x += 1;
+            from_c_x += 1;
+        } else {
+            x += 1;
+            from_c_x += 1;
+            y -= 1;
+            from_c_y -= 1;
+        }
+        coords.push((x, y));
+    }
+    coords
+}
+
+fn draw_circle(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
+    let mut coords = draw_circle_eighth(center, radius);
+    let mut coords2: Vec<(usize, usize)> = coords.iter().map(|(x, y)|
+        (center.0 + y - center.1, center.1 + x - center.0)
+        ).collect();
+    coords.append(&mut coords2);
+
+    let mut coords2: Vec<(usize, usize)> = coords.iter().map(|(x, y)|
+        (*x, center.1 - (y - center.1))
+        ).collect();
+    coords.append(&mut coords2);
+
+    let mut coords2: Vec<(usize, usize)> = coords.iter().map(|(x, y)|
+        (center.0 - (x - center.0), *y)
+        ).collect();
+    coords.append(&mut coords2);
+
+    coords
+}
+
+// TODO worm
+
 fn main() -> std::io::Result<()> {
     let mut stream = TcpStream::connect("127.0.0.1:1337")?;
 
     let info = command_info(&mut stream)?;
-
-    /*
-    let pixels = mandel::draw(-2.0, 1.0, -1.5, 1.5, info.width as usize, info.height as usize);
-    for pixel in pixels {
-        command_print(&pixel, &mut stream)?;
-    }
-    */
-    // floyd_steinberg_bw(Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
-    /*
-    kernel_3x3(Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize },
-        [(0, 1), (-1, 1), (0, 1), (-1, 1), (4, 1), (-1, 1), (0, 1), (-1, 1), (0, 1)],
-        // [(1, 16), (2, 16), (1, 16), (2, 16), (4, 16), (2, 16), (1, 16), (2, 16), (1, 16)],
-        &mut stream)?;
-    */
-    // command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize}, &mut stream)?;
-    // command_rectangle_fill((255, 0, 0), Rect { x: 0, y: 0, w: 100, h: 100}, &mut stream)?;
-    // command_rectangle_fill((255, 255, 0), Rect { x: 50, y: 50, w: 100, h: 150}, &mut stream)?;
+   
     loop {
-        let x = fastrand::usize(0..(info.width as usize));
-        let y = fastrand::usize(0..(info.height as usize));
-        let w = fastrand::usize(1..100);
-        let h = fastrand::usize(1..100);
-        command_rectangle_fill(
-            (fastrand::u8(..), fastrand::u8(..), fastrand::u8(..)),
-            Rect { x, y, w, h}, &mut stream)?;
+        let radius = fastrand::usize(5..100);
+        let x = fastrand::usize(radius .. (info.width as usize - radius));
+        let y = fastrand::usize(radius .. (info.height as usize - radius));
+        let coords = draw_circle((x, y), radius);
+        let cc = fastrand::u8(..);
+        // let color = (fastrand::u8(..), fastrand::u8(..), fastrand::u8(..));
+        for px in coords.into_iter().map(|(x, y)| Pixel { x, y, color: (cc, cc, cc) }) {
+            command_print(&px, &mut stream)?
+        }
     }
 
     Ok(())
