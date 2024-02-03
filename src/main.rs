@@ -308,17 +308,35 @@ fn main() -> std::io::Result<()> {
     let mut stream = TcpStream::connect("127.0.0.1:1337")?;
 
     let info = command_info(&mut stream)?;
-   
+ 
+    command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
+
+    let mut x: f64 = (info.width as usize / 2) as f64;
+    let mut y: f64 = (info.height as usize / 2) as f64;
+    let mut angle: f64 = 0.0;
+    let velo: f64 = 2.0;
+    let mut cc: u8 = 0;
     loop {
-        let radius = fastrand::usize(5..100);
-        let x = fastrand::usize(radius .. (info.width as usize - radius));
-        let y = fastrand::usize(radius .. (info.height as usize - radius));
-        let coords = draw_circle((x, y), radius);
-        let cc = fastrand::u8(..);
-        // let color = (fastrand::u8(..), fastrand::u8(..), fastrand::u8(..));
-        for px in coords.into_iter().map(|(x, y)| Pixel { x, y, color: (cc, cc, cc) }) {
-            command_print(&px, &mut stream)?
+        // advance along direction
+        x += angle.cos() * velo;
+        y -= angle.sin() * velo;
+        // change direction
+        let max_deviation = 0.5;
+        let d = fastrand::f64() * max_deviation;
+        angle += d - max_deviation / 2.0;
+        if angle > 2.0 * std::f64::consts::PI {
+            angle -= 2.0 * std::f64::consts::PI;
+        } else if angle < 0.0 {
+            angle += 2.0 * std::f64::consts::PI;
         }
+
+        if x < 0.0 || y < 0.0 || x > info.width as f64 || y > info.height as f64 {
+            break;
+        }
+        command_print(&Pixel { x: x as usize, y: y as usize, color: (255, 255, 255) }, &mut stream)?;
+        cc = cc.wrapping_add(1);
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 
     Ok(())
