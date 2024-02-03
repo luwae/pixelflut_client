@@ -109,6 +109,18 @@ fn command_rectangle_print(colors: &[(u8, u8, u8)], rect: Rect, stream: &mut Tcp
     Ok(())
 }
 
+fn command_rectangle_fill(color: (u8, u8, u8), rect: Rect, stream: &mut TcpStream) -> std::io::Result<()> {
+    let mut data = [0u8; 12];
+    // first round: write actual command
+    data[0] = b'f';
+    encode_rect(rect, &mut data[0..8]);
+    data[8] = color.0;
+    data[9] = color.1;
+    data[10] = color.2;
+    stream.write_all(&data[..])?;
+    Ok(())
+}
+
 fn add_delta_single(delta: i32, top: i32, bot: i32, base: u8) -> u8 {
     let m: i32 = delta * top / bot + (base as i32);
     if (m < 0) {
@@ -252,12 +264,15 @@ fn main() -> std::io::Result<()> {
     }
     */
     // floyd_steinberg_bw(Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
-    loop {
+    /*
     kernel_3x3(Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize },
-        // [(0, 1), (-1, 1), (0, 1), (-1, 1), (4, 1), (-1, 1), (0, 1), (-1, 1), (0, 1)],
-        [(1, 16), (2, 16), (1, 16), (2, 16), (4, 16), (2, 16), (1, 16), (2, 16), (1, 16)],
+        [(0, 1), (-1, 1), (0, 1), (-1, 1), (4, 1), (-1, 1), (0, 1), (-1, 1), (0, 1)],
+        // [(1, 16), (2, 16), (1, 16), (2, 16), (4, 16), (2, 16), (1, 16), (2, 16), (1, 16)],
         &mut stream)?;
-    }
+    */
+    command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize}, &mut stream)?;
+    command_rectangle_fill((255, 0, 0), Rect { x: 0, y: 0, w: 100, h: 100}, &mut stream)?;
+    command_rectangle_fill((255, 255, 0), Rect { x: 50, y: 50, w: 100, h: 150}, &mut stream)?;
 
     Ok(())
 }
