@@ -354,7 +354,7 @@ impl Worm {
         self.old_y = self.y;
         self.x += self.angle.cos() * self.velo;
         self.y -= self.angle.sin() * self.velo;
-        let max_deviation = 1.5; // should be less than 2 pi
+        let max_deviation = 0.5; // should be less than 2 pi
         let d = fastrand::f64() * max_deviation;
         self.angle += d - max_deviation / 2.0;
         if self.angle > 2.0 * std::f64::consts::PI {
@@ -382,11 +382,11 @@ impl Worm {
             command_print(&Pixel { x: xx, y: yy, color: self.color }, stream)?;
         }
         // draw little black circle
-        for (xx, yy) in dc((self.x as usize, self.y as usize), self.size - 2) {
+        for (xx, yy) in dc((self.x as usize, self.y as usize), self.size - 1) {
             command_print(&Pixel { x: xx, y: yy, color: (0, 0, 0) }, stream)?;
         }
         // draw middle little black circle
-        for (xx, yy) in dc((self.old_x as usize, self.old_y as usize), old_size - 2) {
+        for (xx, yy) in dc((self.old_x as usize, self.old_y as usize), old_size - 1) {
             command_print(&Pixel { x: xx, y: yy, color: (0, 0, 0) }, stream)?;
         }
         return Ok(false);
@@ -397,6 +397,10 @@ fn random_color() -> (u8, u8, u8) {
     (fastrand::u8(..), fastrand::u8(..), fastrand::u8(..))
 }
 
+fn random_angle() -> f64 {
+    fastrand::usize(0..100) as f64 * 2.0 * std::f64::consts::PI / 100.0
+}
+
 fn main() -> std::io::Result<()> {
     let mut stream = TcpStream::connect("127.0.0.1:1337")?;
 
@@ -404,10 +408,10 @@ fn main() -> std::io::Result<()> {
  
     command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
 
-    let mut worm = Worm::from((info.width as usize / 2) as f64, (info.height as usize / 2) as f64, 0.0, 5.0, 10, random_color());
+    let mut worm = Worm::from((info.width as usize / 2) as f64, (info.height as usize / 2) as f64, random_angle(), 4.0, 10, random_color());
     loop {
         if worm.step(&info, &mut stream)? {
-            worm = Worm::from((info.width as usize / 2) as f64, (info.height as usize / 2) as f64, 0.0, 5.0, 10, random_color());
+            worm = Worm::from((info.width as usize / 2) as f64, (info.height as usize / 2) as f64, random_angle(), 4.0, 10, random_color());
         }
     }
 
