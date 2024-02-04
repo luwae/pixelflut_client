@@ -304,6 +304,99 @@ fn draw_circle(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
 
 // TODO worm
 
+fn dc(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
+    let mut coords = Vec::new();
+    let (icx, icy) = (center.0 as isize, center.1 as isize);
+    let ir = radius as isize;
+    for y in (icy - ir) .. (icy + ir) {
+        for x in (icx - ir) .. (icx + ir) {
+            if (y - icy) * (y - icy) + (x - icx) * (x - icx) < ir * ir {
+                if x >= 0 && y >= 0 {
+                    coords.push((x as usize, y as usize));
+                }
+            }
+        }
+    }
+    coords
+}
+
+struct Worm {
+    x: f64,
+    y: f64,
+    old_x: f64,
+    old_y: f64,
+    angle: f64,
+    velo: f64,
+    size: usize,
+    color: (u8, u8, u8),
+}
+
+const WORM_SIZE_MAX: usize = 30;
+const WORM_SIZE_MIN: usize = 8;
+
+impl Worm {
+    fn from(x: f64, y: f64, angle: f64, velo: f64, size: usize, color: (u8, u8, u8)) -> Self {
+        Self {
+            x,
+            y,
+            old_x: x,
+            old_y: y,
+            angle,
+            velo,
+            size,
+            color,
+        }
+    }
+
+    // bool: should stop
+    fn step(&mut self, info: &ServerInfo, stream: &mut TcpStream) -> std::io::Result<bool> {
+        self.old_x = self.x;
+        self.old_y = self.y;
+        self.x += self.angle.cos() * self.velo;
+        self.y -= self.angle.sin() * self.velo;
+        let max_deviation = 1.5; // should be less than 2 pi
+        let d = fastrand::f64() * max_deviation;
+        self.angle += d - max_deviation / 2.0;
+        if self.angle > 2.0 * std::f64::consts::PI {
+            self.angle -= 2.0 * std::f64::consts::PI;
+        } else if self.angle < 0.0 {
+            self.angle += 2.0 * std::f64::consts::PI;
+        }
+
+        if self.x < 0.0 || self.y < 0.0 || self.x > info.width as f64 || self.y > info.height as f64 {
+            return Ok(true);
+        }
+
+        let old_size = self.size;
+        let size_delta = fastrand::isize(-1..=1);
+        if (size_delta == -1 && self.size > WORM_SIZE_MIN)
+            || (size_delta == 1 && self.size < WORM_SIZE_MAX)
+        {
+            self.size = (self.size as isize + size_delta) as usize;
+        }
+
+        // let middle_x = old_x + angle.cos() * (velo / 2.0);
+        // let middle_y = old_y - angle.sin() * (velo / 2.0);
+        // draw big white circle
+        for (xx, yy) in dc((self.x as usize, self.y as usize), self.size) {
+            command_print(&Pixel { x: xx, y: yy, color: self.color }, stream)?;
+        }
+        // draw little black circle
+        for (xx, yy) in dc((self.x as usize, self.y as usize), self.size - 2) {
+            command_print(&Pixel { x: xx, y: yy, color: (0, 0, 0) }, stream)?;
+        }
+        // draw middle little black circle
+        for (xx, yy) in dc((self.old_x as usize, self.old_y as usize), old_size - 2) {
+            command_print(&Pixel { x: xx, y: yy, color: (0, 0, 0) }, stream)?;
+        }
+        return Ok(false);
+    }
+}
+
+fn random_color() -> (u8, u8, u8) {
+    (fastrand::u8(..), fastrand::u8(..), fastrand::u8(..))
+}
+
 fn main() -> std::io::Result<()> {
     let mut stream = TcpStream::connect("127.0.0.1:1337")?;
 
@@ -311,32 +404,11 @@ fn main() -> std::io::Result<()> {
  
     command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
 
-    let mut x: f64 = (info.width as usize / 2) as f64;
-    let mut y: f64 = (info.height as usize / 2) as f64;
-    let mut angle: f64 = 0.0;
-    let velo: f64 = 2.0;
-    let mut cc: u8 = 0;
+    let mut worm = Worm::from((info.width as usize / 2) as f64, (info.height as usize / 2) as f64, 0.0, 5.0, 10, random_color());
     loop {
-        // advance along direction
-        x += angle.cos() * velo;
-        y -= angle.sin() * velo;
-        // change direction
-        let max_deviation = 0.5;
-        let d = fastrand::f64() * max_deviation;
-        angle += d - max_deviation / 2.0;
-        if angle > 2.0 * std::f64::consts::PI {
-            angle -= 2.0 * std::f64::consts::PI;
-        } else if angle < 0.0 {
-            angle += 2.0 * std::f64::consts::PI;
+        if worm.step(&info, &mut stream)? {
+            worm = Worm::from((info.width as usize / 2) as f64, (info.height as usize / 2) as f64, 0.0, 5.0, 10, random_color());
         }
-
-        if x < 0.0 || y < 0.0 || x > info.width as f64 || y > info.height as f64 {
-            break;
-        }
-        command_print(&Pixel { x: x as usize, y: y as usize, color: (255, 255, 255) }, &mut stream)?;
-        cc = cc.wrapping_add(1);
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 
     Ok(())
