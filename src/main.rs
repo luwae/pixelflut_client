@@ -305,6 +305,68 @@ fn draw_circle(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
 // TODO worm
 
 fn dc(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
+    if radius == 0 { panic!("radius 0?"); }
+    if radius == 1 {
+        return vec![center];
+    }
+    if radius == 2 {
+        let mut coords: Vec<(isize, isize)> = vec![(0, -1), (-1, 0), (0, 0), (1, 0), (0, 1)];
+        for c in &mut coords {
+            c.0 += center.0 as isize;
+            c.1 += center.1 as isize;
+        }
+        let mut ucoords: Vec<(usize, usize)> = coords.into_iter()
+            .filter(|(x, y)| *x >= 0 && *y >= 0)
+            .map(|(x, y)| (x as usize, y as usize))
+            .collect();
+        return ucoords;
+    }
+    if radius == 3 {
+        let mut coords: Vec<(isize, isize)> = vec![
+            (-1, -2), (0, -2), (1, -2),
+            (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1),
+            (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0),
+            (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1),
+            (-1, 2), (0, 2), (1, 2),
+        ];
+        for c in &mut coords {
+            c.0 += center.0 as isize;
+            c.1 += center.1 as isize;
+        }
+        let mut ucoords: Vec<(usize, usize)> = coords.into_iter()
+            .filter(|(x, y)| *x >= 0 && *y >= 0)
+            .map(|(x, y)| (x as usize, y as usize))
+            .collect();
+        return ucoords;
+    }
+    /*
+     *  ooooo 
+     * ooooooo
+     * ooooooo
+     * ooooooo
+     * ooooooo 
+     *  ooooo  
+     */
+    if radius == 4 {
+        let mut coords: Vec<(isize, isize)> = vec![
+            (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -3),
+            (-3, -2), (-2, -2), (-1, -2), (0, -2), (1, -2), (2, -2), (3, -2),
+            (-3, -1), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), (3, -1),
+            (-3, 0), (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (3, 0),
+            (-3, 1), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1), (3, 1),
+            (-3, 2), (-2, 2), (-1, 2), (0, 2), (1, 2), (2, 2), (3, 2),
+            (-2, 3), (-1, 3), (0, 3), (1, 3), (2, 3),
+        ];
+        for c in &mut coords {
+            c.0 += center.0 as isize;
+            c.1 += center.1 as isize;
+        }
+        let mut ucoords: Vec<(usize, usize)> = coords.into_iter()
+            .filter(|(x, y)| *x >= 0 && *y >= 0)
+            .map(|(x, y)| (x as usize, y as usize))
+            .collect();
+        return ucoords;
+    }
     let mut coords = Vec::new();
     let (icx, icy) = (center.0 as isize, center.1 as isize);
     let ir = radius as isize;
@@ -399,14 +461,26 @@ impl Worm {
         }
 
         // create flowers/leaves
-        if self.size < 6 && fastrand::f64() < 0.2 {
-            let mut x = self.x as isize + fastrand::isize(-20..20);
-            if x < 0 { x = 0; }
-            let mut y = self.y as isize + fastrand::isize(-20..20);
-            if y < 0 { y = 0; }
-            let color = (fastrand::u8(10..100), fastrand::u8(100..200), fastrand::u8(0..20));
-            for (xx, yy) in dc((x as usize, y as usize), fastrand::usize(5..8)) {
-                command_print(&Pixel { x: xx, y: yy, color }, stream)?;
+        if self.size < 6 {
+            for i in 0..8 {
+                let leaf_dist = fastrand::f64() * 40.0;
+                let leaf_angle = fastrand::f64() * 2.0 * std::f64::consts::PI;
+                let mut x = self.x as isize + (leaf_angle.cos() * leaf_dist) as isize;
+                if x < 0 { x = 0; }
+                let mut y = self.y as isize - (leaf_angle.sin() * leaf_dist) as isize;
+                if y < 0 { y = 0; }
+                // let red: u8 = fastrand::u8(10..250);
+                //let green: u8 = 255 - red + 10;
+                //let blue = fastrand::u8(0..20);
+                let red: u8 = fastrand::u8(10..20);
+                let green: u8 = fastrand::u8(50..=255);
+                let blue: u8 = fastrand::u8(0..10);
+                let color = (green, red, blue);
+                for (xx, yy) in dc((x as usize, y as usize), fastrand::usize(1..5)) {
+                    command_print(&Pixel { x: xx, y: yy, color }, stream)?;
+                }
+                // TODO do a circle out of this
+                // TODO hand-implement small circles
             }
         }
         
