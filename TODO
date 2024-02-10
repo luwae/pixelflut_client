@@ -1,0 +1,4 @@
+ - size decrease chance porportional to current size (smaller -> less likely to get even smaller)
+ - split probability inversely proportional to number of worms living (more worms -> less likely to split)
+ - split probability inversely proportional to size (bigger -> less likely to split)
+ - flowers when the branches are small enough

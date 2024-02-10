@@ -326,6 +326,7 @@ struct Worm {
     old_x: f64,
     old_y: f64,
     angle: f64,
+    starting_angle: f64,
     velo: f64,
     size: usize,
     color: (u8, u8, u8),
@@ -333,6 +334,11 @@ struct Worm {
 
 const WORM_SIZE_MAX: usize = 30;
 const WORM_SIZE_MIN: usize = 8;
+
+struct WormResult {
+    done: bool,
+    new_worms: Vec<Worm>,
+}
 
 impl Worm {
     fn from(x: f64, y: f64, angle: f64, velo: f64, size: usize, color: (u8, u8, u8)) -> Self {
@@ -342,6 +348,7 @@ impl Worm {
             old_x: x,
             old_y: y,
             angle,
+            starting_angle: angle,
             velo,
             size,
             color,
@@ -349,7 +356,7 @@ impl Worm {
     }
 
     // bool: should stop
-    fn step(&mut self, info: &ServerInfo, stream: &mut TcpStream) -> std::io::Result<bool> {
+    fn step(&mut self, info: &ServerInfo, stream: &mut TcpStream) -> std::io::Result<WormResult> {
         self.old_x = self.x;
         self.old_y = self.y;
         self.x += self.angle.cos() * self.velo;
@@ -364,16 +371,28 @@ impl Worm {
         }
 
         if self.x < 0.0 || self.y < 0.0 || self.x > info.width as f64 || self.y > info.height as f64 {
-            return Ok(true);
+            return Ok(WormResult { done: true, new_worms: Vec::new(), });
         }
 
         let old_size = self.size;
-        let size_delta = fastrand::isize(-1..=1);
-        if (size_delta == -1 && self.size > WORM_SIZE_MIN)
-            || (size_delta == 1 && self.size < WORM_SIZE_MAX)
-        {
-            self.size = (self.size as isize + size_delta) as usize;
+        if fastrand::f64() < 0.2 {
+            self.size -= 1;
+            if (self.size < 4) {
+                return Ok(WormResult { done: true, new_worms: Vec::new(), });
+            }
         }
+
+        // create new worms
+        // size is between 20 and 4
+        // let additional_fac = (20 - self.size) as f64 / 100.0; // between 0.26 and 0.1
+        let additional_fac = 0.0;
+        let mut new_worms = Vec::new();
+        if fastrand::f64() < 0.03 + additional_fac {
+            // goes either to the left or to the right
+            let new_worm = Worm::from(self.old_x, self.old_y, self.angle + if fastrand::bool() { 0.3 } else { -0.3 }, self.velo, self.size, self.color);
+            new_worms.push(new_worm);
+        }
+        
 
         // let middle_x = old_x + angle.cos() * (velo / 2.0);
         // let middle_y = old_y - angle.sin() * (velo / 2.0);
@@ -389,7 +408,7 @@ impl Worm {
         for (xx, yy) in dc((self.old_x as usize, self.old_y as usize), old_size - 1) {
             command_print(&Pixel { x: xx, y: yy, color: (0, 0, 0) }, stream)?;
         }
-        return Ok(false);
+        return Ok(WormResult { done: false, new_worms });
     }
 }
 
@@ -408,11 +427,19 @@ fn main() -> std::io::Result<()> {
  
     command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
 
-    let mut worm = Worm::from((info.width as usize / 2) as f64, (info.height as usize / 2) as f64, random_angle(), 4.0, 10, random_color());
-    loop {
-        if worm.step(&info, &mut stream)? {
-            worm = Worm::from((info.width as usize / 2) as f64, (info.height as usize / 2) as f64, random_angle(), 4.0, 10, random_color());
+    let mut worms = Vec::new();
+    let mut worms2 = Vec::new();
+    worms.push(Worm::from((info.width as usize / 2) as f64, (info.height as usize - 1) as f64, std::f64::consts::PI / 2.0, 4.0, 20, (200, 200, 200)));
+    while worms.len() > 0 {
+        for mut worm in worms.drain(..) {
+            let WormResult { done, mut new_worms } = worm.step(&info, &mut stream)?;
+            if !done {
+                worms2.push(worm);
+            }
+            worms2.append(&mut new_worms);
         }
+        // the original worms is empty now
+        std::mem::swap(&mut worms, &mut worms2);
     }
 
     Ok(())
