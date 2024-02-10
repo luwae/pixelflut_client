@@ -308,8 +308,12 @@ fn dc(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
     let mut coords = Vec::new();
     let (icx, icy) = (center.0 as isize, center.1 as isize);
     let ir = radius as isize;
-    for y in (icy - ir) .. (icy + ir) {
-        for x in (icx - ir) .. (icx + ir) {
+    let lby = if icy - ir < 0 { 0 } else { icy - ir };
+    let uby = icy + ir;
+    let lbx = if icx - ir < 0 { 0 } else { icx - ir };
+    let ubx = icx + ir;
+    for y in lby..=uby {
+        for x in lbx..=ubx {
             if (y - icy) * (y - icy) + (x - icx) * (x - icx) < ir * ir {
                 if x >= 0 && y >= 0 {
                     coords.push((x as usize, y as usize));
@@ -375,7 +379,8 @@ impl Worm {
         }
 
         let old_size = self.size;
-        if fastrand::f64() < 0.2 {
+        let additional_fac = if self.size < 6 { -0.02 } else { 0.0 };
+        if fastrand::f64() < 0.2 + additional_fac {
             self.size -= 1;
             if (self.size < 4) {
                 return Ok(WormResult { done: true, new_worms: Vec::new(), });
@@ -385,12 +390,24 @@ impl Worm {
         // create new worms
         // size is between 20 and 4
         // let additional_fac = (20 - self.size) as f64 / 100.0; // between 0.26 and 0.1
-        let additional_fac = 0.0;
+        let additional_fac = if self.size < 6 { 0.1 } else { 0.0 };
         let mut new_worms = Vec::new();
         if fastrand::f64() < 0.03 + additional_fac {
             // goes either to the left or to the right
             let new_worm = Worm::from(self.old_x, self.old_y, self.angle + if fastrand::bool() { 0.3 } else { -0.3 }, self.velo, self.size, self.color);
             new_worms.push(new_worm);
+        }
+
+        // create flowers/leaves
+        if self.size < 6 && fastrand::f64() < 0.2 {
+            let mut x = self.x as isize + fastrand::isize(-20..20);
+            if x < 0 { x = 0; }
+            let mut y = self.y as isize + fastrand::isize(-20..20);
+            if y < 0 { y = 0; }
+            let color = (fastrand::u8(10..100), fastrand::u8(100..200), fastrand::u8(0..20));
+            for (xx, yy) in dc((x as usize, y as usize), fastrand::usize(5..8)) {
+                command_print(&Pixel { x: xx, y: yy, color }, stream)?;
+            }
         }
         
 
