@@ -124,9 +124,9 @@ fn command_rectangle_fill(color: (u8, u8, u8), rect: Rect, stream: &mut TcpStrea
 
 fn add_delta_single(delta: i32, top: i32, bot: i32, base: u8) -> u8 {
     let m: i32 = delta * top / bot + (base as i32);
-    if (m < 0) {
+    if m < 0 {
         0
-    } else if (m > 255) {
+    } else if m > 255 {
         255
     } else {
         m as u8
@@ -140,7 +140,7 @@ fn add_delta(delta: (i32, i32, i32), top: i32, bot: i32, base: &mut (u8, u8, u8)
 }
 
 fn approx_single(col: u8) -> (u8, i32) {
-    if (col < 128) {
+    if col < 128 {
         (0, col as i32)
     } else {
         (255, col as i32 - 255)
@@ -315,7 +315,7 @@ fn dc(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
             c.0 += center.0 as isize;
             c.1 += center.1 as isize;
         }
-        let mut ucoords: Vec<(usize, usize)> = coords.into_iter()
+        let ucoords: Vec<(usize, usize)> = coords.into_iter()
             .filter(|(x, y)| *x >= 0 && *y >= 0)
             .map(|(x, y)| (x as usize, y as usize))
             .collect();
@@ -333,20 +333,12 @@ fn dc(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
             c.0 += center.0 as isize;
             c.1 += center.1 as isize;
         }
-        let mut ucoords: Vec<(usize, usize)> = coords.into_iter()
+        let ucoords: Vec<(usize, usize)> = coords.into_iter()
             .filter(|(x, y)| *x >= 0 && *y >= 0)
             .map(|(x, y)| (x as usize, y as usize))
             .collect();
         return ucoords;
     }
-    /*
-     *  ooooo 
-     * ooooooo
-     * ooooooo
-     * ooooooo
-     * ooooooo 
-     *  ooooo  
-     */
     if radius == 4 {
         let mut coords: Vec<(isize, isize)> = vec![
             (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -3),
@@ -361,7 +353,7 @@ fn dc(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
             c.0 += center.0 as isize;
             c.1 += center.1 as isize;
         }
-        let mut ucoords: Vec<(usize, usize)> = coords.into_iter()
+        let ucoords: Vec<(usize, usize)> = coords.into_iter()
             .filter(|(x, y)| *x >= 0 && *y >= 0)
             .map(|(x, y)| (x as usize, y as usize))
             .collect();
@@ -397,9 +389,6 @@ struct Worm {
     size: usize,
     color: (u8, u8, u8),
 }
-
-const WORM_SIZE_MAX: usize = 30;
-const WORM_SIZE_MIN: usize = 8;
 
 struct WormResult {
     done: bool,
@@ -461,7 +450,7 @@ impl Worm {
 
         // create flowers/leaves
         if self.size < 6 {
-            for i in 0..8 {
+            for _ in 0..8 {
                 let leaf_dist = fastrand::f64() * 40.0;
                 let leaf_angle = fastrand::f64() * 2.0 * std::f64::consts::PI;
                 let mut x = self.x as isize + (leaf_angle.cos() * leaf_dist) as isize;
@@ -483,7 +472,7 @@ impl Worm {
             }
         }
         
-        if (self.size < 4) {
+        if self.size < 4 {
             return Ok(WormResult { done: true, new_worms: Vec::new(), });
         }
 
