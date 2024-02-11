@@ -441,23 +441,22 @@ impl Worm {
         }
 
         let old_size = self.size;
-        let additional_fac = if self.size < 6 { -0.02 } else { 0.0 };
-        if fastrand::f64() < 0.2 + additional_fac {
+        let additional_fac = if self.size < 6 { -0.0 } else { 0.0 };
+        if fastrand::f64() < 0.18 + additional_fac {
             self.size -= 1;
-            if (self.size < 4) {
-                return Ok(WormResult { done: true, new_worms: Vec::new(), });
-            }
         }
 
-        // create new worms
-        // size is between 20 and 4
-        // let additional_fac = (20 - self.size) as f64 / 100.0; // between 0.26 and 0.1
-        let additional_fac = if self.size < 6 { 0.1 } else { 0.0 };
         let mut new_worms = Vec::new();
-        if fastrand::f64() < 0.03 + additional_fac {
-            // goes either to the left or to the right
-            let new_worm = Worm::from(self.old_x, self.old_y, self.angle + if fastrand::bool() { 0.3 } else { -0.3 }, self.velo, self.size, self.color);
-            new_worms.push(new_worm);
+        if self.size >= 4 {
+            // create new worms
+            // size is between 20 and 4
+            // let additional_fac = (20 - self.size) as f64 / 100.0; // between 0.26 and 0.1
+            let additional_fac = if self.size < 6 { 0.1 } else { 0.0 };
+            if fastrand::f64() < 0.03 + additional_fac {
+                // goes either to the left or to the right
+                let new_worm = Worm::from(self.old_x, self.old_y, self.angle + if fastrand::bool() { 0.3 } else { -0.3 }, self.velo, self.size, self.color);
+                new_worms.push(new_worm);
+            }
         }
 
         // create flowers/leaves
@@ -484,6 +483,9 @@ impl Worm {
             }
         }
         
+        if (self.size < 4) {
+            return Ok(WormResult { done: true, new_worms: Vec::new(), });
+        }
 
         // let middle_x = old_x + angle.cos() * (velo / 2.0);
         // let middle_y = old_y - angle.sin() * (velo / 2.0);
@@ -520,7 +522,7 @@ fn main() -> std::io::Result<()> {
 
     let mut worms = Vec::new();
     let mut worms2 = Vec::new();
-    worms.push(Worm::from((info.width as usize / 2) as f64, (info.height as usize - 1) as f64, std::f64::consts::PI / 2.0, 4.0, 20, (200, 200, 200)));
+    worms.push(Worm::from((info.width as usize / 2) as f64, (info.height as usize - 1) as f64, std::f64::consts::PI / 2.0, 3.0, 20, (200, 200, 200)));
     while worms.len() > 0 {
         for mut worm in worms.drain(..) {
             let WormResult { done, mut new_worms } = worm.step(&info, &mut stream)?;
