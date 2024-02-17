@@ -7,6 +7,9 @@ use primitive::{Pixel, Rect};
 
 mod mandel;
 
+mod tree;
+use tree::{WormMutate, Worm, WormResult, DefaultMutate};
+
 #[derive(Debug)]
 struct ServerInfo {
     width: u32,
@@ -304,204 +307,6 @@ fn draw_circle(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
 
 // TODO worm
 
-fn dc(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
-    if radius == 0 { panic!("radius 0?"); }
-    if radius == 1 {
-        return vec![center];
-    }
-    if radius == 2 {
-        let mut coords: Vec<(isize, isize)> = vec![(0, -1), (-1, 0), (0, 0), (1, 0), (0, 1)];
-        for c in &mut coords {
-            c.0 += center.0 as isize;
-            c.1 += center.1 as isize;
-        }
-        let ucoords: Vec<(usize, usize)> = coords.into_iter()
-            .filter(|(x, y)| *x >= 0 && *y >= 0)
-            .map(|(x, y)| (x as usize, y as usize))
-            .collect();
-        return ucoords;
-    }
-    if radius == 3 {
-        let mut coords: Vec<(isize, isize)> = vec![
-            (-1, -2), (0, -2), (1, -2),
-            (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1),
-            (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0),
-            (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1),
-            (-1, 2), (0, 2), (1, 2),
-        ];
-        for c in &mut coords {
-            c.0 += center.0 as isize;
-            c.1 += center.1 as isize;
-        }
-        let ucoords: Vec<(usize, usize)> = coords.into_iter()
-            .filter(|(x, y)| *x >= 0 && *y >= 0)
-            .map(|(x, y)| (x as usize, y as usize))
-            .collect();
-        return ucoords;
-    }
-    if radius == 4 {
-        let mut coords: Vec<(isize, isize)> = vec![
-            (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -3),
-            (-3, -2), (-2, -2), (-1, -2), (0, -2), (1, -2), (2, -2), (3, -2),
-            (-3, -1), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), (3, -1),
-            (-3, 0), (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (3, 0),
-            (-3, 1), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1), (3, 1),
-            (-3, 2), (-2, 2), (-1, 2), (0, 2), (1, 2), (2, 2), (3, 2),
-            (-2, 3), (-1, 3), (0, 3), (1, 3), (2, 3),
-        ];
-        for c in &mut coords {
-            c.0 += center.0 as isize;
-            c.1 += center.1 as isize;
-        }
-        let ucoords: Vec<(usize, usize)> = coords.into_iter()
-            .filter(|(x, y)| *x >= 0 && *y >= 0)
-            .map(|(x, y)| (x as usize, y as usize))
-            .collect();
-        return ucoords;
-    }
-    let mut coords = Vec::new();
-    let (icx, icy) = (center.0 as isize, center.1 as isize);
-    let ir = radius as isize;
-    let lby = if icy - ir < 0 { 0 } else { icy - ir };
-    let uby = icy + ir;
-    let lbx = if icx - ir < 0 { 0 } else { icx - ir };
-    let ubx = icx + ir;
-    for y in lby..=uby {
-        for x in lbx..=ubx {
-            if (y - icy) * (y - icy) + (x - icx) * (x - icx) < ir * ir {
-                if x >= 0 && y >= 0 {
-                    coords.push((x as usize, y as usize));
-                }
-            }
-        }
-    }
-    coords
-}
-
-struct Worm {
-    x: f64,
-    y: f64,
-    old_x: f64,
-    old_y: f64,
-    angle: f64,
-    starting_angle: f64,
-    velo: f64,
-    size: usize,
-    color: (u8, u8, u8),
-}
-
-struct WormResult {
-    done: bool,
-    new_worms: Vec<Worm>,
-}
-
-impl Worm {
-    fn from(x: f64, y: f64, angle: f64, velo: f64, size: usize, color: (u8, u8, u8)) -> Self {
-        Self {
-            x,
-            y,
-            old_x: x,
-            old_y: y,
-            angle,
-            starting_angle: angle,
-            velo,
-            size,
-            color,
-        }
-    }
-
-    // bool: should stop
-    fn step(&mut self, info: &ServerInfo, stream: &mut TcpStream) -> std::io::Result<WormResult> {
-        self.old_x = self.x;
-        self.old_y = self.y;
-        self.x += self.angle.cos() * self.velo;
-        self.y -= self.angle.sin() * self.velo;
-        let max_deviation = 0.5; // should be less than 2 pi
-        let d = fastrand::f64() * max_deviation;
-        self.angle += d - max_deviation / 2.0;
-        if self.angle > 2.0 * std::f64::consts::PI {
-            self.angle -= 2.0 * std::f64::consts::PI;
-        } else if self.angle < 0.0 {
-            self.angle += 2.0 * std::f64::consts::PI;
-        }
-
-        if self.x < 0.0 || self.y < 0.0 || self.x > info.width as f64 || self.y > info.height as f64 {
-            return Ok(WormResult { done: true, new_worms: Vec::new(), });
-        }
-
-        let old_size = self.size;
-        let additional_fac = if self.size < 6 { -0.0 } else { 0.0 };
-        if fastrand::f64() < 0.18 + additional_fac {
-            self.size -= 1;
-        }
-
-        let mut new_worms = Vec::new();
-        if self.size >= 4 {
-            // create new worms
-            // size is between 20 and 4
-            // let additional_fac = (20 - self.size) as f64 / 100.0; // between 0.26 and 0.1
-            let additional_fac = if self.size < 6 { 0.1 } else { 0.0 };
-            if fastrand::f64() < 0.03 + additional_fac {
-                // goes either to the left or to the right
-                let new_worm = Worm::from(self.old_x, self.old_y, self.angle + if fastrand::bool() { 0.3 } else { -0.3 }, self.velo, self.size, self.color);
-                new_worms.push(new_worm);
-            }
-        }
-
-        // create flowers/leaves
-        if self.size < 6 {
-            for _ in 0..8 {
-                let leaf_dist = fastrand::f64() * 40.0;
-                let leaf_angle = fastrand::f64() * 2.0 * std::f64::consts::PI;
-                let mut x = self.x as isize + (leaf_angle.cos() * leaf_dist) as isize;
-                if x < 0 { x = 0; }
-                let mut y = self.y as isize - (leaf_angle.sin() * leaf_dist) as isize;
-                if y < 0 { y = 0; }
-                // let red: u8 = fastrand::u8(10..250);
-                //let green: u8 = 255 - red + 10;
-                //let blue = fastrand::u8(0..20);
-                let red: u8 = fastrand::u8(10..20);
-                let green: u8 = fastrand::u8(50..=255);
-                let blue: u8 = fastrand::u8(0..10);
-                let color = (green, red, blue);
-                for (xx, yy) in dc((x as usize, y as usize), fastrand::usize(1..5)) {
-                    command_print(&Pixel { x: xx, y: yy, color }, stream)?;
-                }
-                // TODO do a circle out of this
-                // TODO hand-implement small circles
-            }
-        }
-        
-        if self.size < 4 {
-            return Ok(WormResult { done: true, new_worms: Vec::new(), });
-        }
-
-        // let middle_x = old_x + angle.cos() * (velo / 2.0);
-        // let middle_y = old_y - angle.sin() * (velo / 2.0);
-        // draw big white circle
-        for (xx, yy) in dc((self.x as usize, self.y as usize), self.size) {
-            command_print(&Pixel { x: xx, y: yy, color: self.color }, stream)?;
-        }
-        // draw little black circle
-        for (xx, yy) in dc((self.x as usize, self.y as usize), self.size - 1) {
-            command_print(&Pixel { x: xx, y: yy, color: (0, 0, 0) }, stream)?;
-        }
-        // draw middle little black circle
-        for (xx, yy) in dc((self.old_x as usize, self.old_y as usize), old_size - 1) {
-            command_print(&Pixel { x: xx, y: yy, color: (0, 0, 0) }, stream)?;
-        }
-        return Ok(WormResult { done: false, new_worms });
-    }
-}
-
-fn random_color() -> (u8, u8, u8) {
-    (fastrand::u8(..), fastrand::u8(..), fastrand::u8(..))
-}
-
-fn random_angle() -> f64 {
-    fastrand::usize(0..100) as f64 * 2.0 * std::f64::consts::PI / 100.0
-}
-
 fn main() -> std::io::Result<()> {
     let mut stream = TcpStream::connect("127.0.0.1:1337")?;
 
@@ -514,11 +319,13 @@ fn main() -> std::io::Result<()> {
     worms.push(Worm::from((info.width as usize / 2) as f64, (info.height as usize - 1) as f64, std::f64::consts::PI / 2.0, 3.0, 20, (200, 200, 200)));
     while worms.len() > 0 {
         for mut worm in worms.drain(..) {
-            let WormResult { done, mut new_worms } = worm.step(&info, &mut stream)?;
-            if !done {
+            if let Some(WormResult { mut new_worms, pixels }) = worm.step::<DefaultMutate>(info.width as usize, info.height as usize) {
+                for px in &pixels {
+                    command_print(px, &mut stream)?;
+                }
                 worms2.push(worm);
+                worms2.append(&mut new_worms);
             }
-            worms2.append(&mut new_worms);
         }
         // the original worms is empty now
         std::mem::swap(&mut worms, &mut worms2);
