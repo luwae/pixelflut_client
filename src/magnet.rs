@@ -20,6 +20,8 @@ impl Particle {
     }
 
     pub fn step(&mut self, obstacles: &[(f64, f64)]) {
+        self.vx = 0.0; // TODO
+        self.vy = 0.0;
         for (ox, oy) in obstacles {
             let dx = self.x - ox;
             let dy = self.y - oy;
