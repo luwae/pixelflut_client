@@ -10,6 +10,9 @@ mod mandel;
 mod tree;
 use tree::{WormMutate, Worm, WormResult, DefaultMutate};
 
+mod magnet;
+use magnet::Particle;
+
 #[derive(Debug)]
 struct ServerInfo {
     width: u32,
@@ -314,12 +317,13 @@ fn main() -> std::io::Result<()> {
  
     command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
 
+    /*
     let mut worms = Vec::new();
     let mut worms2 = Vec::new();
-    worms.push(Worm::from((info.width as usize / 2) as f64, (info.height as usize - 1) as f64, std::f64::consts::PI / 2.0, 3.0, 20, (200, 200, 200)));
+    worms.push(Worm::from((info.width as usize / 2) as f64, (info.height as usize - 1) as f64, std::f64::consts::PI / 8.0, 3.0, 20, (200, 200, 200)));
     while worms.len() > 0 {
         for mut worm in worms.drain(..) {
-            if let Some(WormResult { mut new_worms, pixels }) = worm.step::<DefaultMutate>(info.width as usize, info.height as usize) {
+            if let Some(WormResult { mut new_worms, pixels }) = worm.step::<tree::Mutate2>(info.width as usize, info.height as usize) {
                 for px in &pixels {
                     command_print(px, &mut stream)?;
                 }
@@ -329,6 +333,65 @@ fn main() -> std::io::Result<()> {
         }
         // the original worms is empty now
         std::mem::swap(&mut worms, &mut worms2);
+    }
+
+    let size = 15;
+    let mut colors = vec![(0u8, 0u8, 0u8); size*size];
+    loop {
+        let rx = fastrand::usize(0..(info.width as usize));
+        let ry = fastrand::usize(0..(info.height as usize));
+        let rect = Rect { x: rx, y: ry, w: size, h: size };
+        command_rectangle_get(&mut colors[..], rect, &mut stream)?;
+        let mut rr: usize = 0;
+        let mut gg: usize = 0;
+        let mut bb: usize = 0;
+        for color in &colors {
+            rr += color.0 as usize;
+            gg += color.1 as usize;
+            bb += color.2 as usize;
+        }
+        rr /= size * size;
+        gg /= size * size;
+        bb /= size * size;
+        command_rectangle_fill((rr as u8, gg as u8, bb as u8), rect, &mut stream)?;
+    }
+    */
+
+    let create_obstacle = || (fastrand::f64() * info.width as f64, fastrand::f64() * info.height as f64);
+    let nob = 20;
+    let obstacles: Vec<(f64, f64)> = (0..nob).map(|_| create_obstacle()).collect();
+    //for (ox, oy) in &obstacles {
+    //    command_print(&Pixel { x: *ox as usize, y: *oy as usize, color: (255,0,0) }, &mut stream)?;
+    //}
+    for nn in 0..nob {
+        let n = 40;
+        for i in 0..n {
+            let dx = (2.0 * std::f64::consts::PI * i as f64 / n as f64).cos();
+            let dy = -(2.0 * std::f64::consts::PI * i as f64 / n as f64).sin();
+            let mut p = Particle::stationary(8.0*dx + obstacles[nn].0, 8.0*dy + obstacles[nn].1);
+            let mut skip: Option<usize> = None;
+            let delta_stop = fastrand::f64() * 20.0;
+            while p.x >= 0.0 && p.y >= 0.0 && p.x <= info.width as f64 && p.y <= info.height as f64 {
+                p.step(&obstacles[..]);
+                let toc_x = p.x - info.width as f64 / 2.0;
+                let toc_y = p.y - info.height as f64 / 2.0;
+                skip = match skip {
+                    Some(i) if i > 0 => Some(i - 1),
+                    Some(_) => None,
+                    None => {
+                        if fastrand::f64() < 0.1 {
+                            Some(fastrand::usize(2..8))
+                        } else {
+                            None
+                        }
+                    },
+                };
+                if (toc_x*toc_x + toc_y*toc_y).sqrt() <= info.width as f64 / 2.0 - delta_stop && skip.is_none() {
+                    command_print(&Pixel { x: p.x as usize, y: p.y as usize, color: (255,255,255) }, &mut stream)?;
+                }
+                //std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+        }
     }
 
     Ok(())

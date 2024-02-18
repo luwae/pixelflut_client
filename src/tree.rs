@@ -205,3 +205,57 @@ impl WormMutate for DefaultMutate {
         new_worms
     }
 }
+
+pub struct Mutate2;
+
+impl WormMutate for Mutate2 {
+    fn delta_angle(_worm: &Worm) -> f64 {
+        let max_deviation = 0.05; // should be less than 2 pi
+        fastrand::f64() * max_deviation
+    }
+
+    fn delta_size(worm: &Worm) -> isize {
+        let additional_fac = if worm.size < 6 { -0.0 } else { 0.0 };
+        if fastrand::f64() < 0.18 + additional_fac {
+            -1
+        } else {
+            0
+        }
+    }
+
+    fn leaves(worm: &Worm) -> Vec<Pixel> {
+        let mut pixels = Vec::new();
+        if worm.size < 6 {
+            for _ in 0..8 {
+                let leaf_dist = fastrand::f64() * 40.0;
+                let leaf_angle = fastrand::f64() * 2.0 * std::f64::consts::PI;
+                let mut x = worm.x as isize + (leaf_angle.cos() * leaf_dist) as isize;
+                if x < 0 { x = 0; }
+                let mut y = worm.y as isize - (leaf_angle.sin() * leaf_dist) as isize;
+                if y < 0 { y = 0; }
+                let red: u8 = fastrand::u8(10..20);
+                let green: u8 = fastrand::u8(50..=255);
+                let blue: u8 = fastrand::u8(0..10);
+                let color = (green, red, blue);
+                pixels.append(&mut dc_pixels((x as usize, y as usize), fastrand::usize(1..5), color));
+            }
+        }
+        pixels
+    }
+
+    fn children(worm: &Worm) -> Vec<Worm> {
+        let mut new_worms = Vec::new();
+        if worm.size >= 4 {
+            // create new worms
+            // size is between 20 and 4
+            // let additional_fac = (20 - self.size) as f64 / 100.0; // between 0.26 and 0.1
+            let additional_fac = if worm.size < 6 { 0.1 } else { 0.0 };
+            if fastrand::f64() < 0.03 + additional_fac {
+                // goes either to the left or to the right
+                let new_worm = Worm::from(worm.old_x, worm.old_y, worm.angle + if fastrand::bool() { 0.3 } else { -0.3 }, worm.velo, worm.size, worm.color);
+                new_worms.push(new_worm);
+            }
+        }
+        new_worms
+    }
+}
