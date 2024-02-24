@@ -8,7 +8,7 @@ use primitive::{Pixel, Rect};
 mod mandel;
 
 mod tree;
-use tree::{WormMutate, Worm, WormResult, DefaultMutate};
+use tree::{TreeDraw, DefaultTreeDraw, SymmetricTreeDraw};
 
 mod magnet;
 use magnet::Particle;
@@ -317,6 +317,13 @@ fn main() -> std::io::Result<()> {
  
     command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
 
+    let dtd = SymmetricTreeDraw;
+    for pixels in dtd.steps(info.width as usize, info.height as usize) {
+        for pixel in pixels {
+            command_print(&pixel, &mut stream)?;
+        }
+    }
+
     /*
     let mut worms = Vec::new();
     let mut worms2 = Vec::new();
@@ -357,6 +364,7 @@ fn main() -> std::io::Result<()> {
     }
     */
 
+    /*
     let create_obstacle = || (fastrand::f64() * info.width as f64, fastrand::f64() * info.height as f64);
     let nob = 10;
     let obstacles: Vec<(f64, f64)> = (0..nob).map(|_| create_obstacle()).collect();
@@ -377,8 +385,7 @@ fn main() -> std::io::Result<()> {
                 p.step(&obstacles[..]);
                 let toc_x = p.x - info.width as f64 / 2.0;
                 let toc_y = p.y - info.height as f64 / 2.0;
-                skip = None;
-                /*
+                // skip = None;
                 skip = match skip {
                     Some(i) if i > 0 => Some(i - 1),
                     Some(_) => None,
@@ -390,9 +397,9 @@ fn main() -> std::io::Result<()> {
                         }
                     },
                 };
-                */
                 if (toc_x*toc_x + toc_y*toc_y).sqrt() <= info.width as f64 / 2.0 - delta_stop && skip.is_none() {
-                    let c = if steps > 255*2 { 0u8 } else { (255 - steps / 2) as u8 };
+                    // let c = if steps > 255*2 { 0u8 } else { (255 - steps / 2) as u8 };
+                    let c = 255;
                     command_print(&Pixel { x: p.x as usize, y: p.y as usize, color: (c,c,c) }, &mut stream)?;
                 }
                 steps += 1;
@@ -400,6 +407,7 @@ fn main() -> std::io::Result<()> {
             }
         }
     }
+    */
 
     Ok(())
 }

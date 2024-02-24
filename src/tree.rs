@@ -1,13 +1,6 @@
 use crate::primitive::Pixel;
 
-pub trait WormMutate {
-    fn delta_angle(worm: &Worm) -> f64;
-    fn delta_size(worm: &Worm) -> isize;
-    fn leaves(worm: &Worm) -> Vec<Pixel>;
-    fn children(worm: &Worm) -> Vec<Worm>;
-}
-
-pub struct Worm {
+struct Worm {
     x: f64,
     y: f64,
     old_x: f64,
@@ -17,11 +10,7 @@ pub struct Worm {
     velo: f64,
     size: usize,
     color: (u8, u8, u8),
-}
-
-pub struct WormResult {
-    pub new_worms: Vec<Worm>,
-    pub pixels: Vec<Pixel>,
+    steps: usize,
 }
 
 impl Worm {
@@ -36,40 +25,83 @@ impl Worm {
             velo,
             size,
             color,
+            steps: 0,
         }
     }
+}
 
-    pub fn step<M: WormMutate>(&mut self, screen_width: usize, screen_height: usize) -> Option<WormResult> {
+struct WormResult {
+    new_worms: Vec<Worm>,
+    pixels: Vec<Pixel>,
+}
+
+pub trait TreeDraw {
+    fn starting_worm(&self, screen_width: usize, screen_height: usize) -> Worm {
+        Worm::from((screen_width / 2) as f64, (screen_height - 1) as f64,
+            std::f64::consts::PI / 2.0, 3.0, 20, (200, 200, 200))
+    }
+
+    fn delta_angle(&self, worm: &Worm) -> f64;
+    fn delta_size(&self, worm: &Worm) -> isize;
+    fn leaves(&self, worm: &Worm) -> Vec<Pixel>;
+    fn children(&self, worm: &Worm) -> Vec<Worm>;
+
+    fn worm_step(&self, worm: &mut Worm, screen_width: usize, screen_height: usize) -> Option<WormResult> {
+        worm.steps += 1;
+
         let mut pixels = Vec::new();
 
-        self.old_x = self.x;
-        self.old_y = self.y;
-        self.x += self.angle.cos() * self.velo;
-        self.y -= self.angle.sin() * self.velo;
-        self.angle += M::delta_angle(self);
+        worm.old_x = worm.x;
+        worm.old_y = worm.y;
+        worm.x += worm.angle.cos() * worm.velo;
+        worm.y -= worm.angle.sin() * worm.velo;
+        worm.angle += self.delta_angle(worm);
 
-        if self.x < 0.0 || self.y < 0.0
-            || self.x > screen_width as f64 || self.y > screen_width as f64
+        if worm.x < 0.0 || worm.y < 0.0
+            || worm.x > screen_width as f64 || worm.y > screen_width as f64
         {
             return None;
         }
 
-        let old_size = self.size;
-        self.size = (self.size as isize + M::delta_size(self)) as usize; // TODO check underflow
+        let old_size = worm.size;
+        worm.size = (worm.size as isize + self.delta_size(worm)) as usize; // TODO check underflow
 
-        pixels.append(&mut M::leaves(self));
+        pixels.append(&mut self.leaves(worm));
         
-        if self.size < 4 {
+        if worm.size < 4 {
             return None;
         }
 
         // draw big white circle
-        pixels.append(&mut dc_pixels((self.x as usize, self.y as usize), self.size, self.color));
+        pixels.append(&mut dc_pixels((worm.x as usize, worm.y as usize), worm.size, worm.color));
         // draw little black circle
-        pixels.append(&mut dc_pixels((self.x as usize, self.y as usize), self.size - 1, (0, 0, 0)));
+        pixels.append(&mut dc_pixels((worm.x as usize, worm.y as usize), worm.size - 1, (0, 0, 0)));
         // draw middle little black circle
-        pixels.append(&mut dc_pixels((self.old_x as usize, self.old_y as usize), old_size - 1, (0, 0, 0)));
-        return Some(WormResult { new_worms: M::children(self), pixels });
+        pixels.append(&mut dc_pixels((worm.old_x as usize, worm.old_y as usize), old_size - 1, (0, 0, 0)));
+        return Some(WormResult { new_worms: self.children(worm), pixels });
+    }
+
+    fn steps(&self, screen_width: usize, screen_height: usize) -> Vec<Vec<Pixel>> {
+        let mut worms = Vec::new();
+        let mut worms2 = Vec::new();
+        let mut step_pixels: Vec<Vec<Pixel>> = Vec::new();
+        let mut current_pixels: Vec<Pixel> = Vec::new();
+        worms.push(self.starting_worm(screen_width, screen_height));
+        while worms.len() > 0 {
+            for mut worm in worms.drain(..) {
+                if let Some(WormResult { mut new_worms, mut pixels }) = self.worm_step(&mut worm, screen_width, screen_height) {
+                    current_pixels.append(&mut pixels);
+                    worms2.push(worm);
+                    worms2.append(&mut new_worms);
+                }
+            }
+            // the original worms is empty now
+            std::mem::swap(&mut worms, &mut worms2);
+            let mut temp = Vec::new();
+            std::mem::swap(&mut temp, &mut current_pixels);
+            step_pixels.push(temp);
+        }
+        step_pixels
     }
 }
 
@@ -151,16 +183,16 @@ pub fn dc(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
     coords
 }
 
-pub struct DefaultMutate;
+pub struct DefaultTreeDraw;
 
-impl WormMutate for DefaultMutate {
-    fn delta_angle(_worm: &Worm) -> f64 {
+impl TreeDraw for DefaultTreeDraw {
+    fn delta_angle(&self, worm: &Worm) -> f64 {
         let max_deviation = 0.5; // should be less than 2 pi
         let d = fastrand::f64() * max_deviation;
         d - max_deviation / 2.0
     }
 
-    fn delta_size(worm: &Worm) -> isize {
+    fn delta_size(&self, worm: &Worm) -> isize {
         let additional_fac = if worm.size < 6 { -0.0 } else { 0.0 };
         if fastrand::f64() < 0.18 + additional_fac {
             -1
@@ -169,7 +201,7 @@ impl WormMutate for DefaultMutate {
         }
     }
 
-    fn leaves(worm: &Worm) -> Vec<Pixel> {
+    fn leaves(&self, worm: &Worm) -> Vec<Pixel> {
         let mut pixels = Vec::new();
         if worm.size < 6 {
             for _ in 0..8 {
@@ -189,7 +221,7 @@ impl WormMutate for DefaultMutate {
         pixels
     }
 
-    fn children(worm: &Worm) -> Vec<Worm> {
+    fn children(&self, worm: &Worm) -> Vec<Worm> {
         let mut new_worms = Vec::new();
         if worm.size >= 4 {
             // create new worms
@@ -206,24 +238,22 @@ impl WormMutate for DefaultMutate {
     }
 }
 
-pub struct Mutate2;
+pub struct SymmetricTreeDraw;
 
-impl WormMutate for Mutate2 {
-    fn delta_angle(_worm: &Worm) -> f64 {
-        let max_deviation = 0.05; // should be less than 2 pi
-        fastrand::f64() * max_deviation
+impl TreeDraw for  SymmetricTreeDraw {
+    fn delta_angle(&self, worm: &Worm) -> f64 {
+        0.0
     }
 
-    fn delta_size(worm: &Worm) -> isize {
-        let additional_fac = if worm.size < 6 { -0.0 } else { 0.0 };
-        if fastrand::f64() < 0.18 + additional_fac {
+    fn delta_size(&self, worm: &Worm) -> isize {
+        if worm.steps % 10 == 0 {
             -1
         } else {
             0
         }
     }
 
-    fn leaves(worm: &Worm) -> Vec<Pixel> {
+    fn leaves(&self, worm: &Worm) -> Vec<Pixel> {
         let mut pixels = Vec::new();
         if worm.size < 6 {
             for _ in 0..8 {
@@ -243,16 +273,16 @@ impl WormMutate for Mutate2 {
         pixels
     }
 
-    fn children(worm: &Worm) -> Vec<Worm> {
+    fn children(&self, worm: &Worm) -> Vec<Worm> {
         let mut new_worms = Vec::new();
         if worm.size >= 4 {
             // create new worms
             // size is between 20 and 4
             // let additional_fac = (20 - self.size) as f64 / 100.0; // between 0.26 and 0.1
-            let additional_fac = if worm.size < 6 { 0.1 } else { 0.0 };
-            if fastrand::f64() < 0.03 + additional_fac {
-                // goes either to the left or to the right
-                let new_worm = Worm::from(worm.old_x, worm.old_y, worm.angle + if fastrand::bool() { 0.3 } else { -0.3 }, worm.velo, worm.size, worm.color);
+            if worm.steps % 30 == 0 {
+                let new_worm = Worm::from(worm.old_x, worm.old_y, worm.angle + 0.4, worm.velo, worm.size, worm.color);
+                new_worms.push(new_worm);
+                let new_worm = Worm::from(worm.old_x, worm.old_y, worm.angle - 0.4, worm.velo, worm.size, worm.color);
                 new_worms.push(new_worm);
             }
         }
