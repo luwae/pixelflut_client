@@ -13,6 +13,8 @@ use tree::{TreeDraw, DefaultTreeDraw, SymmetricTreeDraw};
 mod magnet;
 use magnet::Particle;
 
+mod paper;
+
 #[derive(Debug)]
 struct ServerInfo {
     width: u32,
@@ -294,7 +296,6 @@ fn draw_circle(center: (usize, usize), radius: usize) -> Vec<(usize, usize)> {
         (center.0 + y - center.1, center.1 + x - center.0)
         ).collect();
     coords.append(&mut coords2);
-
     let mut coords2: Vec<(usize, usize)> = coords.iter().map(|(x, y)|
         (*x, center.1 - (y - center.1))
         ).collect();
@@ -315,14 +316,23 @@ fn main() -> std::io::Result<()> {
 
     let info = command_info(&mut stream)?;
  
-    command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
+    command_rectangle_fill((231, 219, 197), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
 
+    /*
+    for x in 100..500 {
+        for pixel in paper::dot_at(x, 100, (10, 10, 10)) {
+            command_print(&pixel, &mut stream)?;
+        }
+    }
+    */
+
+    /*
     let dtd = SymmetricTreeDraw;
     for pixels in dtd.steps(info.width as usize, info.height as usize) {
         for pixel in pixels {
             command_print(&pixel, &mut stream)?;
         }
-    }
+    }*/
 
     /*
     let mut worms = Vec::new();
@@ -364,7 +374,6 @@ fn main() -> std::io::Result<()> {
     }
     */
 
-    /*
     let create_obstacle = || (fastrand::f64() * info.width as f64, fastrand::f64() * info.height as f64);
     let nob = 10;
     let obstacles: Vec<(f64, f64)> = (0..nob).map(|_| create_obstacle()).collect();
@@ -373,7 +382,7 @@ fn main() -> std::io::Result<()> {
     //    command_print(&Pixel { x: *ox as usize, y: *oy as usize, color: (255,0,0) }, &mut stream)?;
     //}
     for nn in 0..nob {
-        let n = 50;
+        let n = 20;
         for i in 0..n {
             let dx = (2.0 * std::f64::consts::PI * i as f64 / n as f64).cos();
             let dy = -(2.0 * std::f64::consts::PI * i as f64 / n as f64).sin();
@@ -385,7 +394,8 @@ fn main() -> std::io::Result<()> {
                 p.step(&obstacles[..]);
                 let toc_x = p.x - info.width as f64 / 2.0;
                 let toc_y = p.y - info.height as f64 / 2.0;
-                // skip = None;
+                skip = None;
+                /*
                 skip = match skip {
                     Some(i) if i > 0 => Some(i - 1),
                     Some(_) => None,
@@ -397,15 +407,28 @@ fn main() -> std::io::Result<()> {
                         }
                     },
                 };
+                */
                 if (toc_x*toc_x + toc_y*toc_y).sqrt() <= info.width as f64 / 2.0 - delta_stop && skip.is_none() {
                     // let c = if steps > 255*2 { 0u8 } else { (255 - steps / 2) as u8 };
-                    let c = 255;
-                    command_print(&Pixel { x: p.x as usize, y: p.y as usize, color: (c,c,c) }, &mut stream)?;
+                    for pixel in paper::dot_at(p.x as usize, p.y as usize, (10, 10, 10)) {
+                        command_print(&pixel, &mut stream)?;
+                    }
+                    // command_print(&Pixel { x: p.x as usize, y: p.y as usize, color: (c,c,c) }, &mut stream)?;
                 }
                 steps += 1;
                 // std::thread::sleep(std::time::Duration::from_millis(1));
             }
         }
+    }
+    /*
+    let mut rad: usize = 50;
+    for _ in 0..10 {
+        for (x, y) in draw_circle((512, 512), rad) {
+            for pixel in paper::dot_at(x, y, (10, 10, 10)) {
+                command_print(&pixel, &mut stream)?;
+            }
+        }
+        rad = rad + (200 - rad) * 3 / 10;
     }
     */
 
