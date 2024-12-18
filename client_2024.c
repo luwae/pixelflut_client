@@ -16,7 +16,7 @@
 #else
 #define ADDRESS "193.196.38.206"
 #define PORT 1234
-#define WRITE_PIXEL write_pixel
+#define WRITE_PIXEL write_batched
 #endif
 static unsigned long long pixel_count = 0;
 
@@ -42,7 +42,7 @@ struct iter {
 };
 
 struct barnsley_iter {
-    double x, y, xn, yn;
+    double x, y;
 };
 
 void barnsley_iter_init(struct barnsley_iter *it) {
@@ -51,27 +51,28 @@ void barnsley_iter_init(struct barnsley_iter *it) {
 
 int barnsley_iter(void *barn, struct px *px) {
     struct barnsley_iter *it = barn;
+    double xn, yn;
     double num = rand() / (double)RAND_MAX;
     if (num < 0.01) {
-        it->xn = 0.0;
-        it->yn = 0.16 * it->y;
+        xn = 0.0;
+        yn = 0.16 * it->y;
     } else if (num < 0.86) {
-        it->xn = 0.85 * it->x + 0.04 * it->y;
-        it->yn = -0.04 * it->x + 0.85 * it->y + 1.6;
+        xn = 0.85 * it->x + 0.04 * it->y;
+        yn = -0.04 * it->x + 0.85 * it->y + 1.6;
     } else if (num < 0.93) {
-        it->xn = 0.2 * it->x - 0.26 * it->y;
-        it->yn = 0.23 * it->x + 0.22 * it->y + 1.6;
+        xn = 0.2 * it->x - 0.26 * it->y;
+        yn = 0.23 * it->x + 0.22 * it->y + 1.6;
     } else {
-        it->xn = -0.15 * it->x + 0.28 * it->y;
-        it->yn = 0.26 * it->x + 0.24 * it->y + 0.44;
+        xn = -0.15 * it->x + 0.28 * it->y;
+        yn = 0.26 * it->x + 0.24 * it->y + 0.44;
     }
-    it->x = it->xn;
-    it->y = it->yn;
+    it->x = xn;
+    it->y = yn;
 
     px->x = (unsigned int)((it->x + 5.0) * 50.0);
     px->y = (unsigned int)(it->y * 50.0);
     px->r = 200;
-    px->g = 200;
+    px->g = 40;
     px->b = 40;
     return 1;
 }
@@ -139,9 +140,26 @@ int square_iter(void *iter_void, struct px *px) {
     }
 }
 
-void write_pixel_batched(int fd, const struct px *p) {
-    static char buf[1024];
-    size_t bufp;
+#define BATCH_SIZE 1024
+// strlen("PX xxxx xxxx rrggbbaa\n")
+#define MAX_LEN 22
+void write_batched(int fd, const struct px *p) {
+    static char batch_buf[BATCH_SIZE];
+    static size_t batch_bufp = 0;
+
+    while (batch_bufp + MAX_LEN >= BATCH_SIZE) {
+        // not enough space. Flush.
+        ssize_t written = write(fd, batch_buf, batch_bufp);
+        EASSERT(written != -1, "write");
+        ASSERT(written != 0, "written 0 bytes?");
+        // move
+        memmove(batch_buf, batch_buf + written, batch_bufp - written);
+        batch_bufp -= written;
+    }
+
+    ssize_t len = sprintf(batch_buf + batch_bufp, "PX %d %d %02x%02x%02x\n", p->x, p->y, p->r, p->g, p->b);
+    ASSERT(len > 0, "sprintf");
+    batch_bufp += (size_t)len;
 }
 
 void write_pixel(int fd, const struct px *p) {
@@ -211,9 +229,11 @@ int main() {
     int status = connect(sock, (struct sockaddr *)&addr, sizeof(addr));
     EASSERT(status != -1, "connect");
 
+    /*
     struct square_iter square;
     square_iter_init(&square, 0, 0, 512, 512, 255, 255, 255);
     drain_iter(sock, &square, square_iter);
+    */
 
     struct barnsley_iter barn;
     barnsley_iter_init(&barn);
