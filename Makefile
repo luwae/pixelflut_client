@@ -13,10 +13,10 @@ $(OUT_DIR)/local: $(IN_DIR)/client_2024.c $(OUT_DIR)
 	gcc -O -g -DCONNECTION_LOCAL -Wall -Wextra -o $@ $<
 
 $(OUT_DIR)/client-dyn: $(IN_DIR)/client-dyn.c $(OUT_DIR)
-	gcc -o $@ $< -ldl -Wl,-rpath,$(shell pwd)/$(OUT_DIR)/libs
+	gcc -g -o $@ $< -ldl -Wl,-rpath,$(shell pwd)/$(OUT_DIR)/libs
 	
 $(OUT_DIR)/libs/lib%.so: $(IN_DIR)/libs/%.c $(OUT_DIR) $(OUT_DIR)/libs
-	gcc -fPIC -shared -o $@ $<
+	gcc -g -fPIC -shared -o $@ $<
 
 $(OUT_DIR):
 	mkdir $@

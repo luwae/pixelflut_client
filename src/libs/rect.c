@@ -14,11 +14,13 @@ void *iter_create(void *arg) {
     if (it != NULL) {
         unsigned int arg_x, arg_y, arg_w, arg_h, arg_r, arg_g, arg_b;
         if (arg == NULL) {
+            free(it);
             return NULL;
         }
         int nmatch = sscanf(arg, "%d %d %d %d %02x%02x%02x", &arg_x, &arg_y, &arg_w, &arg_h,
                             &arg_r, &arg_g, &arg_b);
         if (nmatch != 7) {
+            free(it);
             return NULL;
         }
 
