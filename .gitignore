@@ -1,3 +1,7 @@
 /target
 *.class
-client
+client_2024
+client-dyn
+local
+/libs
+fs.img

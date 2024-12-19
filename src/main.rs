@@ -93,6 +93,23 @@ fn command_rectangle_get(colors: &mut [(u8, u8, u8)], rect: Rect, stream: &mut T
     Ok(())
 }
 
+fn command_get(px: &mut Pixel, stream: &mut TcpStream) -> std::io::Result<()> {
+    let mut data = [0u8; 8];
+    data[0] = b'G';
+    data[1] = px.x as u8;
+    data[2] = (px.x >> 8) as u8;
+    data[3] = px.y as u8;
+    data[4] = (px.y >> 8) as u8;
+    data[5] = 0;
+    data[6] = 0;
+    data[7] = 0;
+    stream.write_all(&data[..])?;
+    let mut recv = [0u8; 4];
+    stream.read_exact(&mut recv[..])?;
+    px.color = (recv[0], recv[1], recv[2]);
+    Ok(())
+}
+
 fn command_rectangle_print(colors: &[(u8, u8, u8)], rect: Rect, stream: &mut TcpStream) -> std::io::Result<()> {
     assert!(colors.len() == rect.w * rect.h);
     let mut data: Box<[u8; 1024]> = Box::new([0; 1024]);
@@ -316,7 +333,6 @@ fn main() -> std::io::Result<()> {
 
     let info = command_info(&mut stream)?;
  
-    command_rectangle_fill((231, 219, 197), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
 
     /*
     for x in 100..500 {
@@ -374,6 +390,7 @@ fn main() -> std::io::Result<()> {
     }
     */
 
+    /*
     let create_obstacle = || (fastrand::f64() * info.width as f64, fastrand::f64() * info.height as f64);
     let nob = 10;
     let obstacles: Vec<(f64, f64)> = (0..nob).map(|_| create_obstacle()).collect();
@@ -420,6 +437,7 @@ fn main() -> std::io::Result<()> {
             }
         }
     }
+    */
     /*
     let mut rad: usize = 50;
     for _ in 0..10 {
@@ -431,6 +449,55 @@ fn main() -> std::io::Result<()> {
         rad = rad + (200 - rad) * 3 / 10;
     }
     */
+    // command_rectangle_fill((0, 0, 0), Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
+    /*
+    command_print(&Pixel { x: 1, y: 1, color: (255,255,255) }, &mut stream)?;
+    command_print(&Pixel { x: 4, y: 1, color: (255,255,255) }, &mut stream)?;
+    command_print(&Pixel { x: 5, y: 2, color: (255,255,255) }, &mut stream)?;
+    command_print(&Pixel { x: 5, y: 3, color: (255,255,255) }, &mut stream)?;
+    command_print(&Pixel { x: 5, y: 4, color: (255,255,255) }, &mut stream)?;
+    command_print(&Pixel { x: 4, y: 4, color: (255,255,255) }, &mut stream)?;
+    command_print(&Pixel { x: 3, y: 4, color: (255,255,255) }, &mut stream)?;
+    command_print(&Pixel { x: 2, y: 4, color: (255,255,255) }, &mut stream)?;
+    command_print(&Pixel { x: 1, y: 3, color: (255,255,255) }, &mut stream)?;
+    */
+        /*
+    for y in 0..info.height as usize {
+        for x in 0..info.width as usize {
+            if fastrand::bool() {
+                command_print(&Pixel { x, y, color: (255,255,255) }, &mut stream)?;
+            }
+        }
+    }
+        */
+    loop {
+        let mut colors: Vec<(u8, u8, u8)> = vec![(0, 0, 0); info.width as usize * info.height as usize];
+        command_rectangle_get(&mut colors[..], Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
+
+        let neighbor_coords: [(isize, isize); 8] = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)];
+        let alive = |(r, g, b)| r as usize + g as usize + b as usize >= 128*3;
+        let neighbors_alive = |(x, y), colors: &[(u8, u8, u8)]| neighbor_coords
+                .iter()
+                .map(|(dx, dy)| (x as isize + dx, y as isize + dy))
+                .filter(|(nx, ny)| *nx >= 0 && *ny >= 0 && *nx < info.width as isize && *ny < info.height as isize)
+                .map(|(nx, ny)| colors[ny as usize * info.width as usize + nx as usize])
+                .filter(|col| alive(*col))
+                .count();
+
+        let mut colors2 = colors.clone();
+        for y in 0..info.height as usize {
+            for x in 0..info.width as usize {
+                let na = neighbors_alive((x as isize, y as isize), &colors[..]);
+                // alive after:
+                if (alive(colors[y * info.width as usize + x]) && na >= 2 && na <= 3) || (!alive(colors[y * info.width as usize + x]) && na == 3) {
+                    colors2[y * info.width as usize + x] = (255, 255, 255);
+                } else {
+                    colors2[y * info.width as usize + x] = (0, 0, 0);
+                }
+            }
+        }
+        command_rectangle_print(&colors2[..], Rect { x: 0, y: 0, w: info.width as usize, h: info.height as usize }, &mut stream)?;
+    }
 
     Ok(())
 }

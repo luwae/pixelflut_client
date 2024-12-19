@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 
 #ifdef CONNECTION_LOCAL
 #define ADDRESS "127.0.0.1"
@@ -40,12 +41,9 @@ struct px {
     unsigned char b;
 };
 
-typedef int (*pixel_iter_func)(void *, struct px *);
-
-struct iter {
-    void *data;
-    pixel_iter_func func;
-};
+typedef void *(*iter_create_t)(void);
+typedef void (*iter_destroy_t)(void *);
+typedef int (*iter_next_t)(void *, struct px *);
 
 struct barnsley_iter {
     double x, y;
@@ -236,7 +234,7 @@ void write_pixel_bin(int fd, const struct px *px) {
     pixel_count += 1;
 }
 
-void drain_iter(int fd, void *iter, pixel_iter_func func) {
+void drain_iter(int fd, void *iter, iter_next_t func) {
     struct px px;
     while (func(iter, &px)) {
         WRITE_PIXEL(fd, &px);
@@ -249,7 +247,7 @@ void sig_handler(int s) {
     exit(1);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     struct sigaction action;
@@ -283,16 +281,48 @@ int main() {
     struct square_iter square;
     square_iter_init(&square, 0, 0, 512, 512, 255, 255, 255);
     drain_iter(sock, &square, square_iter);
-    */
 
     struct barnsley_iter barn;
     barnsley_iter_init(&barn);
     drain_iter(sock, &barn, barnsley_iter);
-    /*
+    
     struct file_iter fit;
     file_iter_init(&fit);
     drain_iter(sock, &fit, file_iter);
     */
+
+    // dl start
+    
+    const char *err;
+
+    ASSERT(argc > 1, "missing command line argument");
+    
+    void *obj = dlopen(argv[1], RTLD_NOW);
+    err = dlerror();
+    ASSERT(err == NULL, err);
+
+    iter_create_t iter_create = dlsym(obj, "iter_create");
+    err = dlerror();
+    ASSERT(err == NULL, err);
+    iter_destroy_t iter_destroy = dlsym(obj, "iter_destroy");
+    err = dlerror();
+    ASSERT(err == NULL, err);
+    iter_next_t iter_next = dlsym(obj, "iter_next");
+    err = dlerror();
+    ASSERT(err == NULL, err);
+
+    void *it = iter_create();
+    ASSERT(it != NULL, "iter_create returned NULL");
+
+    struct px px;
+    while (iter_next(it, &px)) {
+        write_batched(sock, &px);
+    }
+    write_batched_flush(sock);
+
+    iter_destroy(it);
+
+    dlclose(obj);
     
     close(sock);
 
