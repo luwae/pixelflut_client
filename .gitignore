@@ -1,7 +1,2 @@
 /target
-*.class
-client_2024
-client-dyn
-local
-/libs
-fs.img
+/build

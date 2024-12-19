@@ -12,6 +12,8 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 
+#include "common.h"
+
 #ifdef CONNECTION_LOCAL
 #define ADDRESS "127.0.0.1"
 #define PORT 1337
@@ -33,53 +35,9 @@ void *loaded_file;
 #define EPANIC(msg) do { perror(msg); exit(1); } while (0)
 #define EASSERT(cond, msg) do { if (!(cond)) EPANIC(msg); } while (0)
 
-struct px {
-    unsigned int x;
-    unsigned int y;
-    unsigned char r;
-    unsigned char g;
-    unsigned char b;
-};
-
 typedef void *(*iter_create_t)(void);
 typedef void (*iter_destroy_t)(void *);
 typedef int (*iter_next_t)(void *, struct px *);
-
-struct barnsley_iter {
-    double x, y;
-};
-
-void barnsley_iter_init(struct barnsley_iter *it) {
-    memset(it, 0, sizeof(*it));
-}
-
-int barnsley_iter(void *barn, struct px *px) {
-    struct barnsley_iter *it = barn;
-    double xn, yn;
-    double num = rand() / (double)RAND_MAX;
-    if (num < 0.01) {
-        xn = 0.0;
-        yn = 0.16 * it->y;
-    } else if (num < 0.86) {
-        xn = 0.85 * it->x + 0.04 * it->y;
-        yn = -0.04 * it->x + 0.85 * it->y + 1.6;
-    } else if (num < 0.93) {
-        xn = 0.2 * it->x - 0.26 * it->y;
-        yn = 0.23 * it->x + 0.22 * it->y + 1.6;
-    } else {
-        xn = -0.15 * it->x + 0.28 * it->y;
-        yn = 0.26 * it->x + 0.24 * it->y + 0.44;
-    }
-    it->x = xn;
-    it->y = yn;
-
-    px->x = (unsigned int)((it->x + 5.0) * 50.0);
-    px->y = (unsigned int)(it->y * 50.0);
-    px->r = 250 - (px->y >> 3);
-    px->g = 50 + (px->y >> 2);
-    px->b = 50 - (px->y >> 4);
-    return 1;
-}
 
 struct file_iter {
     unsigned int x, y;
@@ -256,12 +214,14 @@ int main(int argc, char *argv[]) {
     action.sa_flags = 0;
     sigaction(SIGINT, &action, NULL);
 
+    /*
     // other funny setup
 
     int file_fd = open("fs.img", O_RDONLY);
     EASSERT(file_fd != -1, "open");
     loaded_file = mmap(NULL, LOADED_FILE_SIZE, PROT_READ, MAP_PRIVATE, file_fd, 0);
     EASSERT(loaded_file != MAP_FAILED, "mmap");
+    */
     
     // real program start    
 
