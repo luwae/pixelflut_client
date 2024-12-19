@@ -15,7 +15,8 @@ struct barnsley_iter {
   double x, y;
 };
 
-void *iter_create(void) {
+void *iter_create(void *arg) {
+    (void) arg;
     global_init();
     struct barnsley_iter *it = malloc(sizeof(*it));
     if (it != NULL) {

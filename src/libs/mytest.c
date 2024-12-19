@@ -4,7 +4,8 @@
 
 int dummy;
 
-void *iter_create(void) {
+void *iter_create(void *arg) {
+    (void) arg;
     return &dummy;
 }
 
